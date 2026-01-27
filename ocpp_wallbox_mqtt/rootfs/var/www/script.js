@@ -338,8 +338,7 @@ if (limitKw != null && limitKw > 0) {
 		for (let i = all.length - 1; i >= 0; i--) {
 		  const l = all[i];
 		  if (!/\bL[123]\s*\*/.test(l)) continue;
-		
-		  const m = l.match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP|SUSPEND)(?:\/[A-Z_]+)?\)/i);
+          const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP|SUSPEND)(?:\/(CHARGE|SUSPEND))?(?:,\s*\d+s)?\)/i);
 		  if (m) { liveState = m[1].toUpperCase(); break; }
 		}
 
@@ -513,6 +512,7 @@ if (limitKw != null && limitKw > 0) {
     if (followBottom) {
 	  window.scrollTo(0, document.body.scrollHeight);
     }
+
 
 
 
