@@ -471,8 +471,15 @@ if (limitKw != null && limitKw > 0) {
       if (ms > 0) t = setInterval(load, ms);
     }
 
-    if (btn) btn.addEventListener("click", load);    
-    
+    if (btn)  btn.addEventListener("click", async () => {
+      await load();
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth"
+      });
+    });
+
+
     elRefresh.addEventListener("change", setTimer);
 
     load();
