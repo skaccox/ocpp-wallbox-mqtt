@@ -333,25 +333,29 @@ if (limitKw != null && limitKw > 0) {
       }
 
 		let liveState = null; // "CHARGE" | "AVAIL" | "STOP" | "SUSPEND"
+
+		// Cerca SOLO righe L1/L2/L3, dall'ultima verso l'alto
 		for (let i = all.length - 1; i >= 0; i--) {
-		  // (NNNN, STOP/SUSPEND) oppure (STOP/SUSPEND) oppure (CHARGE) ecc.
-		  const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP|SUSPEND)(?:\/[A-Z_]+)?\)/i);
+		  const l = all[i];
+		  if (!/\bL[123]\s*\*/.test(l)) continue;
+		
+		  const m = l.match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP|SUSPEND)(?:\/[A-Z_]+)?\)/i);
 		  if (m) { liveState = m[1].toUpperCase(); break; }
 		}
-		
+
+
 		let isCharging = (liveState === "CHARGE");
 
-		if (!isCharging) {
+		if (!liveState) {
 		  const tail = all.slice(-120);
 		
 		  const hasChgPower = tail.some(chgHasPower);
-		
 		  const hasPublishCharging = tail.some(l => /Publish charging =>\s*\(actual=1\)/.test(l));
 		  const hasStatusCharging  = tail.some(l => /"status"\s*:\s*"Charging"/.test(l));
 		
 		  if (hasChgPower || hasPublishCharging || hasStatusCharging) {
-		    isCharging = true;
 		    liveState = "CHARGE";
+		    isCharging = true;
 		  }
 		}
 
@@ -509,6 +513,7 @@ if (limitKw != null && limitKw > 0) {
     if (followBottom) {
 	  window.scrollTo(0, document.body.scrollHeight);
     }
+
 
 
 
