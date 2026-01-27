@@ -72,7 +72,17 @@
       followBottom = true;
       window.scrollTo(0, document.body.scrollHeight);
     });
-
+	
+	function chgHasPower(line) {
+	  if (!/\bCHG\*/.test(line)) return false;
+	
+	  // accetta P=1234, P=1234.5, rifiuta P= , P=0, P=0.0
+	  const m = line.match(/\bP\s*=\s*([0-9]+(?:\.[0-9]+)?)\b/);
+	  if (!m) return false;
+	
+	  const p = parseFloat(m[1]);
+	  return Number.isFinite(p) && p > 50; // soglia anti-falsi positivi
+	}
 
     function escapeHtml(s) {
       return s.replace(/[&<>"']/g, m => ({
@@ -322,15 +332,28 @@ if (limitKw != null && limitKw > 0) {
         if (m) { gridLimitW = parseInt(m[1], 10); break; }
       }
 
-		// Stato reale dall’ultima riga L1/L2/L3: (NNNN, CHARGE|AVAIL|STOP) oppure (CHARGE|AVAIL|STOP)
-		let liveState = null; // "CHARGE" | "AVAIL" | "STOP"
+		let liveState = null; // "CHARGE" | "AVAIL" | "STOP" | "SUSPEND"
 		for (let i = all.length - 1; i >= 0; i--) {
-		  const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP)\)/i);
+		  // (NNNN, STOP/SUSPEND) oppure (STOP/SUSPEND) oppure (CHARGE) ecc.
+		  const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP|SUSPEND)(?:\/[A-Z_]+)?\)/i);
 		  if (m) { liveState = m[1].toUpperCase(); break; }
 		}
 		
 		let isCharging = (liveState === "CHARGE");
 
+		if (!isCharging) {
+		  const tail = all.slice(-120);
+		
+		  const hasChgPower = tail.some(chgHasPower);
+		
+		  const hasPublishCharging = tail.some(l => /Publish charging =>\s*\(actual=1\)/.test(l));
+		  const hasStatusCharging  = tail.some(l => /"status"\s*:\s*"Charging"/.test(l));
+		
+		  if (hasChgPower || hasPublishCharging || hasStatusCharging) {
+		    isCharging = true;
+		    liveState = "CHARGE";
+		  }
+		}
 
 
       let kw = null;
@@ -341,18 +364,15 @@ if (limitKw != null && limitKw > 0) {
       if (isCharging) {
         for (let i = all.length - 1; i >= 0; i--) {
           const l = all[i];
-          if (!/\bCHG\*/.test(l)) continue;
-
-          const mP = l.match(/\bP=(\d+(?:\.\d+)?)\b/);
-          const p = mP ? parseFloat(mP[1]) : 0;
-
-          if (p > 50) {
-            kw = p / 1000.0;
-
-            const mKwh = l.match(/\bkwh=([0-9.]+)/i);
-            if (mKwh) kwh = parseFloat(mKwh[1]);
-            break;
-          }
+			if (!chgHasPower(l)) continue;
+			
+			const mP = l.match(/\bP\s*=\s*([0-9]+(?:\.[0-9]+)?)\b/);
+			const p = parseFloat(mP[1]);
+			kw = p / 1000.0;
+			
+			const mKwh = l.match(/\bkwh\s*=\s*([0-9.]+)/i);
+			if (mKwh) kwh = parseFloat(mKwh[1]);
+			break;
         }
       }
 
@@ -489,6 +509,7 @@ if (limitKw != null && limitKw > 0) {
     if (followBottom) {
 	  window.scrollTo(0, document.body.scrollHeight);
     }
+
 
 
 
