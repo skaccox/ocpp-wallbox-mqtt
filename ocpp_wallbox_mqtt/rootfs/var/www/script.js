@@ -322,21 +322,28 @@ if (limitKw != null && limitKw > 0) {
         if (m) { gridLimitW = parseInt(m[1], 10); break; }
       }
 
-     // Stato reale dall’ultima riga L1/L2/L3: (NNNN, CHARGE|AVAIL|STOP) oppure (CHARGE|AVAIL|STOP)
-	let liveState = null; // "CHARGE" | "AVAIL" | "STOP"
-	for (let i = all.length - 1; i >= 0; i--) {
-  		const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP)\)/i);
-  		if (m) { liveState = m[1].toUpperCase(); break; }
-	}
-	// fallback: se vedo CHG* nelle ultime righe, sono in carica
-	if (!isCharging) {
-	  const tail = all.slice(-120);
-	  if (tail.some(l => /\bCHG\*/.test(l)) || tail.some(l => /Publish charging =>\s*\(actual=1\)/.test(l))) {
-	    isCharging = true;
-	    liveState = "CHARGE";
-	  }
-	}
-	let isCharging = (liveState === "CHARGE");
+		// Stato reale dall’ultima riga L1/L2/L3: (NNNN, CHARGE|AVAIL|STOP) oppure (CHARGE|AVAIL|STOP)
+		let liveState = null; // "CHARGE" | "AVAIL" | "STOP"
+		for (let i = all.length - 1; i >= 0; i--) {
+		  const m = all[i].match(/\((?:\d+\s*,\s*)?(CHARGE|AVAIL|STOP)\)/i);
+		  if (m) { liveState = m[1].toUpperCase(); break; }
+		}
+		
+		let isCharging = (liveState === "CHARGE");
+		
+		// fallback: se vedo CHG* nelle ultime righe, sono in carica
+		if (!isCharging) {
+		  const tail = all.slice(-120);
+		  if (
+		    tail.some(l => /\bCHG\*/.test(l)) ||
+		    tail.some(l => /Publish charging =>\s*\(actual=1\)/.test(l)) ||
+		    tail.some(l => /"status"\s*:\s*"Charging"/.test(l))
+		  ) {
+		    isCharging = true;
+		    liveState = "CHARGE";
+		  }
+		}
+
 
       let kw = null;
       let pv = null;
@@ -415,7 +422,7 @@ if (limitKw != null && limitKw > 0) {
         elBadge.classList.toggle("warn", overNow);
       }
 
-      // Sparkline: se non , spingi 0
+      // Sparkline: se non CHARGE , spingi 0
       sparkData.push(isCharging && typeof kw === "number" && isFinite(kw) ? kw : 0);
       sparkTime.push(Date.now());
       while (sparkData.length > SPARK_MAX) { sparkData.shift(); sparkTime.shift(); }
@@ -494,4 +501,5 @@ if (limitKw != null && limitKw > 0) {
     if (followBottom) {
 	  window.scrollTo(0, document.body.scrollHeight);
     }
+
 
