@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OCPP Wallbox Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<header>
+  <div class="row">
+    <img src="icon.png" class="logo" id="logo">
+ <!-- solo prime 2 righe: affiancate al logo -->
+    <div class="rightTop">
+      <div class="topline">
+        <strong>OCPP Wallbox Log</strong>
+        <span class="muted" id="status">—</span>
+
+      
+      </div>
+
+      <div class="line2">
+        <label class="lines">Righe:
+          <input id="lines" type="number" min="50" max="5000" value="400" />
+        </label>
+          <!-- Auto-refresh resta in riga col titolo su mobile -->
+        <label class="refresh">Refresh:
+          <select id="refresh">
+            <option value="0">OFF</option>
+            <option value="1000">1s</option>
+            <option value="2000" selected>2s</option>
+            <option value="5000">5s</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- full width: filtro + metriche + azioni -->
+    <div class="rightFull">
+      <label class="wide">Filtro:
+        <input id="filter" type="text" placeholder="es: CHG, SetChargingProfile, grid safe..." />
+        <button id="btn" class="desktopOnly">Aggiorna</button>
+        <button id="btnBottom">Vai in fondo</button>
+      </label>
+
+      <div class="footerRow">
+        <span class="muted metrics">
+          kW: <strong id="kw">—</strong> · PV: <strong id="pv">—</strong> · Caricati: <strong id="kwh">—</strong>
+          <span id="solarBadge" class="badge" style="display:none;">FULL SOLAR</span>
+        </span>
+
+        
+      </div>
+    </div>
+    
+  </div>
+</header>
+
+<div id="chartWrap">
+  <canvas id="powerChart"></canvas>
+</div>
+
+  
+  <div id="log">Caricamento…</div>
+
+<script src="script.js" defer></script>
+</body>
+</html>

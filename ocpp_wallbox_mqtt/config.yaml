@@ -1,0 +1,99 @@
+name: "OCPP Wallbox MQTT Server"
+slug: "ocpp_wallbox_mqtt"
+description: "OCPP Wallbox MQTT Server"
+version: "1.0.0ze"
+url: "https://github.com/skaccox/ocpp-wallbox-mqtt"
+documentation: "https://gitlab.com/lucabon/ocpp-mqtt-perl-server"
+
+ingress: true
+ingress_port: 8099
+
+panel: true
+panel_title: "OCPP Wallbox"
+panel_icon: "mdi:ev-station"
+
+arch:
+  - aarch64
+  - armv7
+  - amd64
+  - i386
+
+startup: services
+boot: auto
+init: false
+
+host_network: true
+
+map:
+  - config:rw
+  - ssl:ro
+  - share:rw
+
+services:
+  - mqtt:need
+
+options:
+  wallbox_set_limit_unit: "W"
+  ocpp_verbose: 11
+
+  mqtt_broker: "localhost:1883"
+  mqtt_user: ""
+  mqtt_pass: ""
+
+  wallbox_mqtt_name: "MyWallbox"
+
+  grid_limit: 4000
+  grid_limit_safe: 3300
+
+  add_wallbox_power_to_meter: false
+
+  minpower: 6
+
+  global_energy: 0
+  use_stop_as_suspend: 0
+  stop_on_suspendev: 0
+
+  meter_mqtt_prefix: "home/meter/grid"
+  meter_mqtt_power: "power"
+
+  meter_mqtt_l1_voltage: "l1_voltage"
+  meter_mqtt_l2_voltage: ""
+  meter_mqtt_l3_voltage: ""
+
+  meter_mqtt_l1_current: "l1_current"
+  meter_mqtt_l2_current: ""
+  meter_mqtt_l3_current: ""
+
+  auto_update: false
+
+schema:
+  wallbox_set_limit_unit: "list(W|A)"
+  ocpp_verbose: "int(0,15)"
+
+  mqtt_broker: str
+  mqtt_user: str?
+  mqtt_pass: password?
+
+  wallbox_mqtt_name: str
+
+  grid_limit: int
+  grid_limit_safe: int
+  add_wallbox_power_to_meter: bool
+
+  minpower: int
+  global_energy: "list(0|1)"
+  use_stop_as_suspend: "list(0|1)"
+  stop_on_suspendev: int
+
+  meter_mqtt_prefix: str
+  meter_mqtt_power: str
+
+  meter_mqtt_l1_voltage: str
+  meter_mqtt_l2_voltage: str
+  meter_mqtt_l3_voltage: str
+
+  meter_mqtt_l1_current: str
+  meter_mqtt_l2_current: str
+  meter_mqtt_l3_current: str
+
+  auto_update: bool
