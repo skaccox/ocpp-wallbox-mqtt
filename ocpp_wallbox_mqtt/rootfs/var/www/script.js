@@ -330,19 +330,7 @@ if (limitKw != null && limitKw > 0) {
 		}
 		
 		let isCharging = (liveState === "CHARGE");
-		
-		// fallback: se vedo CHG* nelle ultime righe, sono in carica
-		if (!isCharging) {
-		  const tail = all.slice(-120);
-		  if (
-		    tail.some(l => /\bCHG\*/.test(l)) ||
-		    tail.some(l => /Publish charging =>\s*\(actual=1\)/.test(l)) ||
-		    tail.some(l => /"status"\s*:\s*"Charging"/.test(l))
-		  ) {
-		    isCharging = true;
-		    liveState = "CHARGE";
-		  }
-		}
+
 
 
       let kw = null;
@@ -501,5 +489,6 @@ if (limitKw != null && limitKw > 0) {
     if (followBottom) {
 	  window.scrollTo(0, document.body.scrollHeight);
     }
+
 
 
