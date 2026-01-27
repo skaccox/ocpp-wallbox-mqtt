@@ -1,7 +1,7 @@
 name: "OCPP Wallbox MQTT Server"
 slug: "ocpp_wallbox_mqtt"
 description: "OCPP Wallbox MQTT Server"
-version: "1.0.1"
+version: "1.0.1-a"
 url: "https://github.com/skaccox/ocpp-wallbox-mqtt"
 documentation: "https://gitlab.com/lucabon/ocpp-mqtt-perl-server"
 
@@ -9,7 +9,7 @@ ingress: true
 ingress_port: 8099
 
 panel: true
-panel_title: "OCPP Wallbox"
+panel_title: "OCPPa Wallbox"
 panel_icon: "mdi:ev-station"
 
 arch:
@@ -97,3 +97,4 @@ schema:
   meter_mqtt_l3_current: str
 
   auto_update: bool
+
