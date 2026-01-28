@@ -13,10 +13,44 @@ All options are configured in the add-on UI.
 Power unit used to control the wallbox.
 
 Allowed values:
-- `W` = Watts
+- `W` = Watts (required for Huawei SmartCharger)  
 - `A` = Amps
 
 ---
+
+#### `wallbox_set_limit_mainstep`
+Step used when converting Watt power changes into real Ampere increments.
+
+This parameter defines how many Amps are added or removed at each adjustment when controlling the wallbox in Watts mode.
+
+It replaces the old internal compensation logic (removed since v1.9910) to avoid cumulative errors and drifting values.
+
+Default:
+- `1` (1 Amp step)
+
+Typical usage:
+- Keep `1` for precise control  
+- Increase slightly if your wallbox reacts too slowly to power changes  
+
+---
+
+#### `wallbox_set_limit_finestep`
+Decimal precision supported by the wallbox when setting current limits.
+
+This allows the server to send Ampere values with decimal digits instead of rounding to integers.
+
+Example values:
+- `0.01` → wallbox supports two decimal places (recommended for Huawei SmartCharger)  
+- `0.1` → one decimal place  
+- `1` → integer Amps only  
+
+
+---
+
+> ℹ️ When using `W` mode, the server adjusts power by translating Watt changes into real Ampere steps using `WALLBOX_SET_LIMIT_MAINSTEP`, then applies decimal precision defined by `WALLBOX_SET_LIMIT_FINESTEP`.
+
+---
+
 
 #### `ocpp_verbose`
 Log verbosity of the OCPP server.
@@ -147,9 +181,7 @@ You need to check profile configuration inside ocpp.ini
 
 ## ⭐ Tips
 
-After installing, go to /config/ocpp.ini and verify the configuration (the add-on reads its settings from there).
-
-Huawei SmartCharger note: for Huawei SmartCharger, WALLBOX_SET_LIMIT_UNIT must be set to W (watts).
+After installing, go to /config/ocpp.ini and verify the configuration (the add-on write its settings here).
 
 Configure the wallbox to connect to the OCPP server with:
 

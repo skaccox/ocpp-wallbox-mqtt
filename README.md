@@ -15,6 +15,8 @@ The add-on also includes an automatic update mechanism, making it easy to stay i
 
 Ideal for users who want a simple, self-hosted OCPP + MQTT bridge inside Home Assistant for monitoring, control, and smart power limiting.
 
+## You need to remove existing other OCPP Server/Integration. This addon already include an OCPP server.
+
 <img width="1639" height="936" alt="image" src="https://github.com/user-attachments/assets/fe2dc1d3-f216-4233-bac4-2c09f7965493" />
 
 

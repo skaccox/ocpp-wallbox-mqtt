@@ -15,6 +15,7 @@ The add-on also includes an automatic update mechanism, making it easy to stay i
 
 Ideal for users who want a simple, self-hosted OCPP + MQTT bridge inside Home Assistant for monitoring, control, and smart power limiting.
 
+## You need to remove existing other OCPP Server/Integration. This addon already include an OCPP server.
 
 ---
 
@@ -33,7 +34,7 @@ Cristiano Puppin
 For advanced automations, combine this add-on with:
 
 • Home Assistant Energy Dashboard  
-• Solar integrations  like Fusion Solar for Huawei Wallbox
+• Solar integrations  like Fusion Solar for Huawei Wallbox  
 • MQTT sensors  
 • Charging profiles (Dynamic, Fixed, Eco, Solar)
 
