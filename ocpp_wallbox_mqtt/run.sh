@@ -170,7 +170,8 @@ set_kv () {
   local value="$2"
 
   if grep -qE "^[[:space:]]*${key}=" "${INI_FILE}"; then
-    sed -i -E "s|^[[:space:]]*${key}=.*|${key}=${value}|" "${INI_FILE}"
+    # replace ONLY the first occurrence
+    sed -i -E "0,/^[[:space:]]*${key}=/{s|^[[:space:]]*${key}=.*|${key}=${value}|}" "${INI_FILE}"
   else
     echo "${key}=${value}" >> "${INI_FILE}"
   fi
