@@ -8,7 +8,7 @@ OCPP_VERBOSE="$(bashio::config 'ocpp_verbose')"
 # ---- Parametri UI ----
 WALLBOX_SET_LIMIT_UNIT="$(bashio::config 'wallbox_set_limit_unit')"
 
-WALLBOX_SET_LIMIT_MAINSTEP="$(bashio::config 'wallbox_set_limit_mainstep')"
+WALLBOX_SET_LIMIT_MAINSTEP="$(bashio::config 'wallbox_set_limit_mainstep' | tr ',' '.')"
 WALLBOX_SET_LIMIT_FINESTEP="$(bashio::config 'wallbox_set_limit_finestep' | tr ',' '.')"
 
 GRID_LIMIT="$(bashio::config 'grid_limit')"
@@ -165,17 +165,29 @@ if [ ! -f "${INI_FILE}" ]; then
   fi
 fi
 
+
 set_kv () {
   local key="$1"
   local value="$2"
-
+  #solo la prima occorrenza
   if grep -qE "^[[:space:]]*${key}=" "${INI_FILE}"; then
-    # replace ONLY the first occurrence
-    sed -i -E "0,/^[[:space:]]*${key}=/{s|^[[:space:]]*${key}=.*|${key}=${value}|}" "${INI_FILE}"
+    awk -v k="$key" -v v="$value" '
+      BEGIN { done=0 }
+      {
+        if (!done && $0 ~ "^[[:space:]]*" k "=") {
+          print k "=" v
+          done=1
+        } else {
+          print
+        }
+      }
+    ' "${INI_FILE}" > "${INI_FILE}.tmp" && mv "${INI_FILE}.tmp" "${INI_FILE}"
   else
     echo "${key}=${value}" >> "${INI_FILE}"
   fi
 }
+
+
 
 bashio::log.info "Aggiorno ${INI_FILE} dai parametri add-on..."
 
