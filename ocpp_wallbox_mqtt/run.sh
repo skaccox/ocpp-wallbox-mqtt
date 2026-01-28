@@ -9,14 +9,12 @@ OCPP_VERBOSE="$(bashio::config 'ocpp_verbose')"
 WALLBOX_SET_LIMIT_UNIT="$(bashio::config 'wallbox_set_limit_unit')"
 
 WALLBOX_SET_LIMIT_MAINSTEP="$(bashio::config 'wallbox_set_limit_mainstep')"
-WALLBOX_SET_LIMIT_FINESTEP="$(bashio::config 'wallbox_set_limit_finestep')"
+WALLBOX_SET_LIMIT_FINESTEP="$(bashio::config 'wallbox_set_limit_finestep' | tr ',' '.')"
 
 GRID_LIMIT="$(bashio::config 'grid_limit')"
 GRID_LIMIT_SAFE="$(bashio::config 'grid_limit_safe')"
 
 MINPOWER="$(bashio::config 'minpower')"
-GLOBAL_ENERGY="$(bashio::config 'global_energy')"
-USE_STOP_AS_SUSPEND="$(bashio::config 'use_stop_as_suspend')"
 STOP_ON_SUSPENDEV="$(bashio::config 'stop_on_suspendev')"
 
 METER_MQTT_PREFIX="$(bashio::config 'meter_mqtt_prefix')"
@@ -41,23 +39,20 @@ CODE_REPO="https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
 CODE_REF="main"
 AUTO_UPDATE="$(bashio::config 'auto_update')"
 
+ADD_WALLBOX_POWER_TO_METER=0
+GLOBAL_ENERGY=0
+USE_STOP_AS_SUSPEND=0
 
 if bashio::config.true 'add_wallbox_power_to_meter'; then
   ADD_WALLBOX_POWER_TO_METER=1
-else
-  ADD_WALLBOX_POWER_TO_METER=0
 fi
 
 if bashio::config.true 'global_energy'; then
-  ADD_WALLBOX_POWER_TO_METER=1
-else
-  ADD_WALLBOX_POWER_TO_METER=0
+  GLOBAL_ENERGY=1
 fi
 
 if bashio::config.true 'use_stop_as_suspend'; then
-  ADD_WALLBOX_POWER_TO_METER=1
-else
-  ADD_WALLBOX_POWER_TO_METER=0
+  USE_STOP_AS_SUSPEND=1
 fi
 
 bashio::log.info "App dir: ${APP_DIR}"
