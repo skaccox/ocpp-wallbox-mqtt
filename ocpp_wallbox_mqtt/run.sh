@@ -4,9 +4,32 @@ set -e
 APP_DIR="/config/ocpp-mqtt-perl-server"
 INI_FILE="/config/ocpp-mqtt-perl-server/ocpp.ini"
 
+OCPP_VERBOSE="$(bashio::config 'ocpp_verbose')"
 # ---- Parametri UI ----
 WALLBOX_SET_LIMIT_UNIT="$(bashio::config 'wallbox_set_limit_unit')"
-OCPP_VERBOSE="$(bashio::config 'ocpp_verbose')"
+
+WALLBOX_SET_LIMIT_MAINSTEP="$(bashio::config 'wallbox_set_limit_mainstep')"
+WALLBOX_SET_LIMIT_FINESTEP="$(bashio::config 'wallbox_set_limit_finestep')"
+
+GRID_LIMIT="$(bashio::config 'grid_limit')"
+GRID_LIMIT_SAFE="$(bashio::config 'grid_limit_safe')"
+
+MINPOWER="$(bashio::config 'minpower')"
+GLOBAL_ENERGY="$(bashio::config 'global_energy')"
+USE_STOP_AS_SUSPEND="$(bashio::config 'use_stop_as_suspend')"
+STOP_ON_SUSPENDEV="$(bashio::config 'stop_on_suspendev')"
+
+METER_MQTT_PREFIX="$(bashio::config 'meter_mqtt_prefix')"
+METER_MQTT_POWER="$(bashio::config 'meter_mqtt_power')"
+
+METER_MQTT_L1_VOLTAGE="$(bashio::config 'meter_mqtt_l1_voltage')"
+METER_MQTT_L2_VOLTAGE="$(bashio::config 'meter_mqtt_l2_voltage')"
+METER_MQTT_L3_VOLTAGE="$(bashio::config 'meter_mqtt_l3_voltage')"
+
+METER_MQTT_L1_CURRENT="$(bashio::config 'meter_mqtt_l1_current')"
+METER_MQTT_L2_CURRENT="$(bashio::config 'meter_mqtt_l2_current')"
+METER_MQTT_L3_CURRENT="$(bashio::config 'meter_mqtt_l3_current')"
+
 
 MQTT_BROKER="$(bashio::config 'mqtt_broker')"
 MQTT_USER="$(bashio::config 'mqtt_user')"
@@ -17,6 +40,25 @@ WALLBOX_MQTT_NAME="$(bashio::config 'wallbox_mqtt_name')"
 CODE_REPO="https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
 CODE_REF="main"
 AUTO_UPDATE="$(bashio::config 'auto_update')"
+
+
+if bashio::config.true 'add_wallbox_power_to_meter'; then
+  ADD_WALLBOX_POWER_TO_METER=1
+else
+  ADD_WALLBOX_POWER_TO_METER=0
+fi
+
+if bashio::config.true 'global_energy'; then
+  ADD_WALLBOX_POWER_TO_METER=1
+else
+  ADD_WALLBOX_POWER_TO_METER=0
+fi
+
+if bashio::config.true 'use_stop_as_suspend'; then
+  ADD_WALLBOX_POWER_TO_METER=1
+else
+  ADD_WALLBOX_POWER_TO_METER=0
+fi
 
 bashio::log.info "App dir: ${APP_DIR}"
 bashio::log.info "Repo: ${CODE_REPO} (${CODE_REF})"
@@ -142,13 +184,35 @@ set_kv () {
 bashio::log.info "Aggiorno ${INI_FILE} dai parametri add-on..."
 
 set_kv "VERBOSE" "${OCPP_VERBOSE}"
+
 set_kv "MQTT_BROKER" "${MQTT_BROKER}"
 set_kv "MQTT_USERNAME" "${MQTT_USER}"
 set_kv "MQTT_PASSWORD" "${MQTT_PASS}"
 
-set_kv "WALLBOX_SET_LIMIT_UNIT" "${WALLBOX_SET_LIMIT_UNIT}"
 set_kv "WALLBOX_MQTT_NAME" "${WALLBOX_MQTT_NAME}"
+set_kv "WALLBOX_SET_LIMIT_UNIT" "${WALLBOX_SET_LIMIT_UNIT}"
+set_kv "WALLBOX_SET_LIMIT_MAINSTEP" "${WALLBOX_SET_LIMIT_MAINSTEP}"
+set_kv "WALLBOX_SET_LIMIT_FINESTEP" "${WALLBOX_SET_LIMIT_FINESTEP}"
 
+set_kv "GRID_LIMIT" "${GRID_LIMIT}"
+set_kv "GRID_LIMIT_SAFE" "${GRID_LIMIT_SAFE}"
+set_kv "ADD_WALLBOX_POWER_TO_METER" "${ADD_WALLBOX_POWER_TO_METER}"
+
+set_kv "MINPOWER" "${MINPOWER}"
+set_kv "GLOBAL_ENERGY" "${GLOBAL_ENERGY}"
+set_kv "USE_STOP_AS_SUSPEND" "${USE_STOP_AS_SUSPEND}"
+set_kv "STOP_ON_SUSPENDEV" "${STOP_ON_SUSPENDEV}"
+
+set_kv "METER_MQTT_PREFIX" "${METER_MQTT_PREFIX}"
+set_kv "METER_MQTT_POWER" "${METER_MQTT_POWER}"
+
+set_kv "METER_MQTT_L1_VOLTAGE" "${METER_MQTT_L1_VOLTAGE}"
+set_kv "METER_MQTT_L2_VOLTAGE" "${METER_MQTT_L2_VOLTAGE}"
+set_kv "METER_MQTT_L3_VOLTAGE" "${METER_MQTT_L3_VOLTAGE}"
+
+set_kv "METER_MQTT_L1_CURRENT" "${METER_MQTT_L1_CURRENT}"
+set_kv "METER_MQTT_L2_CURRENT" "${METER_MQTT_L2_CURRENT}"
+set_kv "METER_MQTT_L3_CURRENT" "${METER_MQTT_L3_CURRENT}"
 
 bashio::log.info "Avvio web log viewer (Python) su porta 8099 (Ingress)"
 
