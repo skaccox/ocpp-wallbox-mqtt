@@ -169,7 +169,13 @@ fi
 set_kv () {
   local key="$1"
   local value="$2"
-  #solo la prima occorrenza
+
+  # if value is empty -> do nothing (keep ini as is)
+  if [ -z "${value}" ]; then
+    return 0
+  fi
+
+  # only first occurrence
   if grep -qE "^[[:space:]]*${key}=" "${INI_FILE}"; then
     awk -v k="$key" -v v="$value" '
       BEGIN { done=0 }
@@ -183,6 +189,7 @@ set_kv () {
       }
     ' "${INI_FILE}" > "${INI_FILE}.tmp" && mv "${INI_FILE}.tmp" "${INI_FILE}"
   else
+    # only create if not present AND value not empty
     echo "${key}=${value}" >> "${INI_FILE}"
   fi
 }
