@@ -247,9 +247,9 @@ async function computeDailyTotals(d) {
     const meter  = parseMeterDat(meterTxt);
     const solar  = parseSolarDat(solarTxt);
 
-    const evEnergyRaw  = normalizeSeries(charge.evEnergy);
-    const sessions     = parseChargeSessions(chargeTxt).map(s => ({ start: s.start, end: s.end }));
-    const sessionsMeta = buildSessionsMeta(sessions, evEnergyRaw);
+    charge.evEnergy    = normalizeSeries(charge.evEnergy);
+    const sessions     = parseChargeSessions(chargeTxt);   // conserva s.wb
+    const sessionsMeta = buildSessionsMeta(sessions, charge);
     const chargeKwh    = sessionsMeta.reduce((acc, s) => acc + (s.kwh || 0), 0);
 
     const solarArr = normalizeSeries(solar.solarKw);
@@ -268,31 +268,41 @@ async function computeDailyTotals(d) {
       else exportKwh += Math.abs(avg) * dtH;
     }
 
-    // PV Charged: quanta energia EV viene dal solare
+    // PV Charged: quanta energia EV viene dal solare.
+    // Se il file ha session_pv_kwh (col 11) usiamo il valore vero calcolato dal
+    // server; altrimenti restiamo sulla stima per integrazione min(ev, ev-grid).
     const evArr = normalizeSeries(charge.evPower);
-    const r = commonRange([evArr, gridArr]);
+    const pvFromFile = sumSessionPv(sessionsMeta);
     let pvChargedKwh = 0;
-    if (r && evArr.length && gridArr.length) {
-      const STEP = 30000;
-      const evR = resampleHold(evArr, r.t0, r.t1, STEP);
-      const grR = resampleHold(gridArr, r.t0, r.t1, STEP);
-      for (let i = 1; i < evR.length; i++) {
-        const ev0 = evR[i-1].y || 0, ev1 = evR[i].y || 0;
-        const gr0 = grR[i-1] ? (grR[i-1].y || 0) : 0;
-        const gr1 = grR[i] ? (grR[i].y || 0) : 0;
-        const pv0 = Math.max(0, Math.min(ev0, ev0 - gr0));
-        const pv1 = Math.max(0, Math.min(ev1, ev1 - gr1));
-        const dtH = (evR[i].x - evR[i-1].x) / 3600000;
-        pvChargedKwh += (pv0 + pv1) / 2 * dtH;
-      }
-    }
 
-    if (chargeKwh > 0 && pvChargedKwh > chargeKwh) pvChargedKwh = chargeKwh;
+    if (pvFromFile != null) {
+      pvChargedKwh = pvFromFile;
+    } else {
+      const r = commonRange([evArr, gridArr]);
+      if (r && evArr.length && gridArr.length) {
+        const STEP = 30000;
+        const evR = resampleHold(evArr, r.t0, r.t1, STEP);
+        const grR = resampleHold(gridArr, r.t0, r.t1, STEP);
+        for (let i = 1; i < evR.length; i++) {
+          const ev0 = evR[i-1].y || 0, ev1 = evR[i].y || 0;
+          const gr0 = grR[i-1] ? (grR[i-1].y || 0) : 0;
+          const gr1 = grR[i] ? (grR[i].y || 0) : 0;
+          const pv0 = Math.max(0, Math.min(ev0, ev0 - gr0));
+          const pv1 = Math.max(0, Math.min(ev1, ev1 - gr1));
+          const dtH = (evR[i].x - evR[i-1].x) / 3600000;
+          pvChargedKwh += (pv0 + pv1) / 2 * dtH;
+        }
+      }
+      if (chargeKwh > 0 && pvChargedKwh > chargeKwh) pvChargedKwh = chargeKwh;
+    }
 
     const evMaxKw = minMax(evArr)?.max ?? 0;
     const pvMaxKw = minMax(normalizeSeries(solar.solarKw))?.max ?? 0;
 
-    return { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw, sessionCount: sessionsMeta.length, hasData: true };
+    return { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
+             sessionCount: sessionsMeta.length,
+             chargeByWb: kwhByWallbox(sessionsMeta),
+             hasData: true };
   } catch {
     return { chargeKwh: 0, solarKwh: 0, importKwh: 0, exportKwh: 0, pvChargedKwh: 0, evMaxKw: 0, pvMaxKw: 0, hasData: false };
   }
@@ -344,6 +354,45 @@ function applyChartTypeMode() {
   historyChart.update();
 }
 
+// Elenco delle wallbox presenti nel periodo, in ordine stabile.
+function wallboxesInTotals(totals){
+  const set = new Set();
+  for (const t of (totals || [])){
+    for (const wb of Object.keys(t?.chargeByWb || {})) set.add(wb);
+  }
+  return [...set].sort();
+}
+
+// Barre EV del grafico a periodo: una sola col totale se c'e' una wallbox,
+// altrimenti una per wallbox nello stesso stack.
+function evBarDatasets(totals){
+  const wbs = wallboxesInTotals(totals);
+
+  if (wbs.length < 2) {
+    return [{
+      label: "EV Charged (kWh)",
+      metric: "ev",
+      stack: "ev",
+      primary: true,
+      data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null),
+      backgroundColor: "rgba(34,197,94,0.75)",
+      borderColor: "#22c55e", borderWidth: 1
+    }];
+  }
+
+  return wbs.map((wb, i) => ({
+    label: `${wbShort(wb)} (kWh)`,
+    metric: "ev",
+    stack: "ev",
+    wbKey: wb,
+    primary: i === 0,
+    data: totals.map(t => t.hasData ? +((t.chargeByWb || {})[wb] || 0).toFixed(2) : null),
+    backgroundColor: WB_BAR_FILL[i % WB_BAR_FILL.length],
+    borderColor: WB_COLORS[i % WB_COLORS.length],
+    borderWidth: 1
+  }));
+}
+
 function drawBarChart(labels, totals, title) {
   const canvas = document.getElementById("historyChart");
   const ctx = canvas.getContext("2d");
@@ -356,35 +405,41 @@ function drawBarChart(labels, totals, title) {
     data: {
       labels,
       datasets: [
-        {
-          label: "EV Charged (kWh)",
-          data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null),
-          backgroundColor: "rgba(34,197,94,0.75)",
-          borderColor: "#22c55e", borderWidth: 1
-        },
+        // Barre EV: una sola col totale, oppure una per wallbox impilate nello
+        // stesso gruppo "ev" (l'altezza del gruppo resta il totale del giorno).
+        ...evBarDatasets(totals),
         {
           label: "Solar (kWh)",
+          metric: "solar",
+          stack: "solar",
           data: totals.map(t => t.hasData ? +t.solarKwh.toFixed(2) : null),
           backgroundColor: "rgba(56,189,248,0.75)",
           borderColor: "#38bdf8", borderWidth: 1
         },
         {
           label: "Grid Export (kWh)",
+          metric: "export",
+          stack: "export",
           data: totals.map(t => t.hasData ? +t.exportKwh.toFixed(2) : null),
           backgroundColor: "rgba(139,92,246,0.75)",
           borderColor: "#8b5cf6", borderWidth: 1
         },
         {
           label: "Grid Import (kWh)",
+          metric: "import",
+          stack: "import",
           data: totals.map(t => t.hasData ? +t.importKwh.toFixed(2) : null),
           backgroundColor: "rgba(244,63,94,0.75)",
           borderColor: "#f43f5e", borderWidth: 1
         },
-        { type:"line", label:"_trend_ev",     data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null), borderColor:"#22c55e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_solar",  data: totals.map(t => t.hasData ? +t.solarKwh.toFixed(2)  : null), borderColor:"#38bdf8", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_export", data: totals.map(t => t.hasData ? +t.exportKwh.toFixed(2) : null), borderColor:"#8b5cf6", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_import", data: totals.map(t => t.hasData ? +t.importKwh.toFixed(2) : null), borderColor:"#f43f5e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 }
-        
+        // Linee di trend: stessi dati delle barre, mostrate in modalita' "lines".
+        // Ognuna ha il suo stack: su un asse stacked i dataset dello stesso
+        // gruppo si sommerebbero, e le linee devono restare indipendenti.
+        { type:"line", label:"_trend_ev",     metric:"ev",     displayLabel:"EV Charged (kWh)",  stack:"trend_ev",     data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null), borderColor:"#22c55e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_solar",  metric:"solar",  displayLabel:"Solar (kWh)",       stack:"trend_solar",  data: totals.map(t => t.hasData ? +t.solarKwh.toFixed(2)  : null), borderColor:"#38bdf8", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_export", metric:"export", displayLabel:"Grid Export (kWh)", stack:"trend_export", data: totals.map(t => t.hasData ? +t.exportKwh.toFixed(2) : null), borderColor:"#8b5cf6", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_import", metric:"import", displayLabel:"Grid Import (kWh)", stack:"trend_import", data: totals.map(t => t.hasData ? +t.importKwh.toFixed(2) : null), borderColor:"#f43f5e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 }
+
       ]
     },
     options: {
@@ -413,40 +468,85 @@ function drawBarChart(labels, totals, title) {
         tooltip: {
           callbacks: {
             label(context) {
-              const lbl = context.dataset.label;
-              if (lbl?.startsWith("_trend_")) {
+              const ds = context.dataset;
+              if (ds.label?.startsWith("_trend_")) {
                 if (chartTypeMode !== "lines") return null;
-                const names = { _trend_ev: "EV Charged (kWh)", _trend_solar: "Solar (kWh)", _trend_import: "Grid Import (kWh)", _trend_export: "Grid Export (kWh)" };
-                return names[lbl] || lbl;
+                return ds.displayLabel || ds.label;
               }
-              return lbl || "";
+              return ds.label || "";
             },
             afterLabel(context) {
-              const lbl = context.dataset.label;
-              if (lbl?.startsWith("_trend_") && chartTypeMode !== "lines") return null;
-              const dataIndex = context.dataIndex;
-              const val = context.parsed.y;
-              const t = totals[dataIndex];
+              const ds = context.dataset;
+              if (ds.label?.startsWith("_trend_") && chartTypeMode !== "lines") return null;
+
+              const t = totals[context.dataIndex];
               if (!t) return "";
-              const trendOrigIdx = { _trend_ev: 0, _trend_solar: 1, _trend_import: 2, _trend_export: 3 };
-              const dsIndex = lbl?.startsWith("_trend_") ? (trendOrigIdx[lbl] ?? -1) : context.datasetIndex;
+
+              // La metrica e' una proprieta' del dataset, non la sua posizione:
+              // aggiungere o togliere dataset non sposta piu' niente.
+              const metric = ds.metric;
+              const val = context.parsed.y;
               const lines = [`Total: ${val !== null ? val.toFixed(2) + " kWh" : "—"}`];
-              if (dsIndex === 0 && t.evMaxKw) lines.push(`Max: ${t.evMaxKw.toFixed(2)} kW`);
-              if (dsIndex === 1 && t.pvMaxKw) lines.push(`Max: ${t.pvMaxKw.toFixed(2)} kW`);
+
+              // i "Max" sono valori del giorno, non del singolo dataset: con le
+              // barre per wallbox li mostriamo una volta sola, sulla prima
+              if (metric === "ev"    && ds.primary && t.evMaxKw) lines.push(`Max: ${t.evMaxKw.toFixed(2)} kW`);
+              if (metric === "solar" && t.pvMaxKw)               lines.push(`Max: ${t.pvMaxKw.toFixed(2)} kW`);
+
+              // Scomposizione per wallbox: serve solo quando la barra EV e'
+              // aggregata. Se le barre sono gia' per wallbox sarebbe ridondante.
+              if (metric === "ev" && !ds.wbKey) {
+                const keys = Object.keys(t.chargeByWb || {}).sort();
+                if (keys.length > 1) {
+                  for (const wb of keys) lines.push(`${wbShort(wb)}: ${(t.chargeByWb[wb] || 0).toFixed(2)} kWh`);
+                }
+              }
               return lines;
             }
           }
         }
       },
+      // stacked: i dataset si sommano solo dentro lo stesso `stack`, quindi le
+      // barre EV per wallbox si impilano fra loro mentre solar/import/export
+      // restano gruppi affiancati, uno per metrica, come prima.
       scales: {
-        x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } }
+        x: { stacked: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } }
       }
     }
   });
 
   applyChartTypeMode();
   setTimeout(() => historyChart.resize(), 50);
+}
+
+// Scrive il totale caricato e, con piu' di una wallbox, la scomposizione
+// accanto al numero: "7.00 kWh (EV1 2.00 · EV2 5.00)".
+// Con una sola wallbox il riquadro resta identico a prima.
+function setChargedStat(totKwh, byWb){
+  const el = document.getElementById("statCharged");
+  if (!el) return;
+
+  el.textContent = (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) + " kWh" : "—";
+
+  // span fratello dentro lo stesso contenitore inline: un blocco romperebbe
+  // il layout flex/nowrap di .historyStats
+  const host = el.parentElement;
+  if (!host) return;
+
+  const breakdown = wbBreakdownText(byWb, "");
+  let sub = host.querySelector(".wbSplit");
+
+  if (!breakdown) {
+    if (sub) sub.remove();
+    return;
+  }
+  if (!sub) {
+    sub = document.createElement("span");
+    sub.className = "wbSplit";
+    el.insertAdjacentElement("afterend", sub);
+  }
+  sub.textContent = ` (${breakdown})`;
 }
 
 function updatePeriodStats(totals) {
@@ -463,7 +563,8 @@ function updatePeriodStats(totals) {
 
   document.getElementById("statEv").textContent       = evMax ? evMax.toFixed(2) + " kW" : "—";
   const totCharge = sum("chargeKwh");
-  document.getElementById("statCharged").textContent  = totCharge.toFixed(2) + " kWh";
+  const byWb      = mergeKwhByWallbox(totals.map(t => t.chargeByWb));
+  setChargedStat(totCharge, byWb);
   const totPvCharged = sum("pvChargedKwh");
   document.getElementById("statPvCharged").textContent = totPvCharged > 0 ? totPvCharged.toFixed(2) + " kWh" : "—";
   const pctPv = (totCharge > 0 && totPvCharged > 0) ? Math.min(100, totPvCharged / totCharge * 100) : 0;
@@ -498,30 +599,51 @@ function energyAt(evEnergy, tsMs) {
 }
 
 // === Precalcola meta sessioni: #, durata, kWh ===
-function buildSessionsMeta(sessions, evEnergy) {
+// `charge` e' il risultato di parseChargeDat: serve byWb, perche' i kWh vanno
+// letti sulla wallbox della sessione e non sulla serie mescolata.
+function buildSessionsMeta(sessions, charge) {
+  const fallbackReg = Array.isArray(charge) ? charge : (charge?.evEnergy || []);
+  const byWb        = Array.isArray(charge) ? null : charge?.byWb;
+
   return sessions.map((s, idx) => {
-    let e0 = energyAt(evEnergy, s.start);
-    let e1 = energyAt(evEnergy, s.end);
+    const w = byWb?.get?.(s.wb);
+    let kwh = null, pvKwh = null;
 
-    // fallback: se e0 manca (Begin prima del primo MeterValue), prendo il primo valore nella sessione
-    if (e0 == null) {
-      for (let i = 0; i < evEnergy.length; i++) {
-        if (evEnergy[i].x >= s.start && evEnergy[i].x <= s.end) { e0 = evEnergy[i].y; break; }
-      }
-    }
-    // fallback: se e1 manca (sessione in corso), prendo l'ultimo valore nella sessione
-    if (e1 == null) {
-      for (let i = evEnergy.length - 1; i >= 0; i--) {
-        if (evEnergy[i].x >= s.start && evEnergy[i].x <= s.end) { e1 = evEnergy[i].y; break; }
-      }
+    // Formato nuovo: session_kwh (col 10) e' running, quindi l'ultimo valore
+    // dentro la finestra E' il totale di sessione. Nessun delta di registri.
+    if (w?.sessionKwh?.length) {
+      kwh   = lastInWindow(w.sessionKwh,   s.start, s.end);
+      pvKwh = lastInWindow(w.sessionPvKwh, s.start, s.end);
     }
 
-    let kwh = null;
-    if (e0 != null && e1 != null) {
-      kwh = e1 - e0;
-      // se per qualche motivo resetta, fallback a abs
-      if (!isFinite(kwh)) kwh = null;
-      else if (kwh < 0) kwh = Math.abs(kwh);
+    // Legacy: delta del registro assoluto, ma della SOLA wallbox di questa
+    // sessione. Sulla serie mescolata il delta salterebbe tra due contatori
+    // cumulativi indipendenti.
+    if (kwh == null) {
+      const reg = w?.energyReg?.length ? w.energyReg : fallbackReg;
+
+      let e0 = energyAt(reg, s.start);
+      let e1 = energyAt(reg, s.end);
+
+      // fallback: se e0 manca (Begin prima del primo MeterValue), prendo il primo valore nella sessione
+      if (e0 == null) {
+        for (let i = 0; i < reg.length; i++) {
+          if (reg[i].x >= s.start && reg[i].x <= s.end) { e0 = reg[i].y; break; }
+        }
+      }
+      // fallback: se e1 manca (sessione in corso), prendo l'ultimo valore nella sessione
+      if (e1 == null) {
+        for (let i = reg.length - 1; i >= 0; i--) {
+          if (reg[i].x >= s.start && reg[i].x <= s.end) { e1 = reg[i].y; break; }
+        }
+      }
+
+      if (e0 != null && e1 != null) {
+        kwh = e1 - e0;
+        // se per qualche motivo resetta, fallback a abs
+        if (!isFinite(kwh)) kwh = null;
+        else if (kwh < 0) kwh = Math.abs(kwh);
+      }
     }
 
     const durMs = Math.max(0, s.end - s.start);
@@ -532,7 +654,9 @@ function buildSessionsMeta(sessions, evEnergy) {
       start: s.start,
       end: s.end,
       durMin,
-      kwh
+      kwh,
+      pvKwh,
+      wb: s.wb
     };
   });
 }
@@ -700,8 +824,13 @@ const solarTxt  = (solarResp && solarResp.ok) ? await solarResp.text() : "";
   meter.gridKw    = normalizeSeries(meter.gridKw);
   solar.solarKw   = normalizeSeries(solar.solarKw);
 
-  // salva evEnergy raw (prima del resampling) per calcolo kWh sessioni
-  const evEnergyRaw = charge.evEnergy;
+  // salva le serie raw (prima del resampling) per il calcolo kWh sessioni.
+  // byWb non viene mai ricampionato, quindi basta tenere il riferimento.
+  const chargeRaw = {
+    evEnergy:  charge.evEnergy,
+    byWb:      charge.byWb,
+    wallboxes: charge.wallboxes
+  };
 
   const r = commonRange([charge.evPower, charge.evEnergy, meter.gridKw]);
   if (!r) return;
@@ -715,6 +844,12 @@ const solarTxt  = (solarResp && solarResp.ok) ? await solarResp.text() : "";
     solar.solarKw = resampleHold(solar.solarKw, r.t0, r.t1, STEP_MS);
   }
 
+  // serie per-wallbox sulla stessa griglia del totale, solo per il grafico
+  charge.wbPlot = (charge.wallboxes || []).map(wb => ({
+    wb,
+    power: resampleHold(charge.byWb.get(wb).power, r.t0, r.t1, STEP_MS)
+  }));
+
 
   const evMM   = minMax(charge.evPower);
   const gridMM = minMax(meter.gridKw);
@@ -722,11 +857,10 @@ const solarTxt  = (solarResp && solarResp.ok) ? await solarResp.text() : "";
 
 
   // === SESSIONI (UNA SOLA VOLTA) ===
-  const sessions = parseChargeSessions(chargeTxt)
-    .map(s => ({ start: s.start, end: s.end }));
+  const sessions = parseChargeSessions(chargeTxt);   // conserva s.wb
 
-  // usa evEnergy raw (timestamp esatti) per evitare problemi di allineamento griglia
-  const sessionsMeta = buildSessionsMeta(sessions, evEnergyRaw);
+  // usa le serie raw (timestamp esatti) per evitare problemi di allineamento griglia
+  const sessionsMeta = buildSessionsMeta(sessions, chargeRaw);
 
 
 /*document.getElementById("statEv").textContent =
@@ -735,26 +869,31 @@ document.getElementById("statEv").textContent =
   evMM ? `${evMM.max.toFixed(2)} kW` : "—";
 
 const totalKwh = sessionsMeta.reduce((acc,s)=>acc+(s.kwh||0),0);
-document.getElementById("statCharged").textContent =
-  totalKwh > 0 ? totalKwh.toFixed(2)+" kWh" : "—";
+setChargedStat(totalKwh, kwhByWallbox(sessionsMeta));
 
-// PV Charged: quanta energia caricata nell'EV è venuta dal solare
-// pvForEv = max(0, min(evPower, evPower - gridKw))
+// PV Charged: quanta energia caricata nell'EV è venuta dal solare.
+// Con session_pv_kwh (col 11) è un valore vero del server; senza, si stima
+// come pvForEv = max(0, min(evPower, evPower - gridKw)).
 let pvChargedKwh = 0;
-const evP = charge.evPower;
-const grP = meter.gridKw;
-if (evP.length && grP.length) {
-  for (let i = 1; i < evP.length; i++) {
-    const ev0 = evP[i-1].y || 0, ev1 = evP[i].y || 0;
-    const gr0 = grP[i-1] ? (grP[i-1].y || 0) : 0;
-    const gr1 = grP[i] ? (grP[i].y || 0) : 0;
-    const pv0 = Math.max(0, Math.min(ev0, ev0 - gr0));
-    const pv1 = Math.max(0, Math.min(ev1, ev1 - gr1));
-    const dtH = (evP[i].x - evP[i-1].x) / 3600000;
-    pvChargedKwh += (pv0 + pv1) / 2 * dtH;
+const pvFromFile = sumSessionPv(sessionsMeta);
+if (pvFromFile != null) {
+  pvChargedKwh = pvFromFile;
+} else {
+  const evP = charge.evPower;
+  const grP = meter.gridKw;
+  if (evP.length && grP.length) {
+    for (let i = 1; i < evP.length; i++) {
+      const ev0 = evP[i-1].y || 0, ev1 = evP[i].y || 0;
+      const gr0 = grP[i-1] ? (grP[i-1].y || 0) : 0;
+      const gr1 = grP[i] ? (grP[i].y || 0) : 0;
+      const pv0 = Math.max(0, Math.min(ev0, ev0 - gr0));
+      const pv1 = Math.max(0, Math.min(ev1, ev1 - gr1));
+      const dtH = (evP[i].x - evP[i-1].x) / 3600000;
+      pvChargedKwh += (pv0 + pv1) / 2 * dtH;
+    }
   }
+  if (totalKwh > 0 && pvChargedKwh > totalKwh) pvChargedKwh = totalKwh;
 }
-if (totalKwh > 0 && pvChargedKwh > totalKwh) pvChargedKwh = totalKwh;
 document.getElementById("statPvCharged").textContent =
   pvChargedKwh > 0 ? pvChargedKwh.toFixed(2)+" kWh" : "—";
 const pvPct = (totalKwh > 0 && pvChargedKwh > 0) ? (pvChargedKwh / totalKwh * 100) : 0;
@@ -794,6 +933,64 @@ document.getElementById("statSessions").textContent =
   drawHistoryChart(charge, meter, solar, sessions, sessionsMeta);
 }
 
+// kWh per wallbox a partire dalle sessioni: {wallbox01: 2.0, wallbox02: 5.0}
+function kwhByWallbox(sessionsMeta){
+  const out = {};
+  for (const s of (sessionsMeta || [])){
+    if (!s.wb) continue;
+    out[s.wb] = (out[s.wb] || 0) + (s.kwh || 0);
+  }
+  return out;
+}
+
+// Somma piu' mappe wb->kWh (per i riepiloghi su piu' giorni)
+function mergeKwhByWallbox(list){
+  const out = {};
+  for (const m of (list || [])){
+    for (const [wb, v] of Object.entries(m || {})) out[wb] = (out[wb] || 0) + (v || 0);
+  }
+  return out;
+}
+
+// "EV1 2.00 · EV2 5.00" - stringa vuota con una sola wallbox: il totale basta.
+function wbBreakdownText(byWb, unit = " kWh"){
+  const keys = Object.keys(byWb || {}).sort();
+  if (keys.length < 2) return "";
+  return keys.map(wb => `${wbShort(wb)} ${(byWb[wb] || 0).toFixed(2)}${unit}`).join(" · ");
+}
+
+// Nome leggibile di una wallbox. Priorita':
+//  1. WALLBOX_MQTT_NAME dalla sua sezione di ocpp.ini, iniettato dal server
+//     in window.OCPP_WALLBOX_NAMES (la colonna 9 dei .dat E' l'id di sezione)
+//  2. "EV<n>" se l'id segue la convenzione wallboxNN
+//  3. l'id cosi' com'e' (le sezioni possono avere nomi arbitrari)
+function wbShort(wb){
+  const named = (typeof window !== "undefined" && window.OCPP_WALLBOX_NAMES) || {};
+  const n = named[wb];
+  if (typeof n === "string" && n.trim()) return n.trim();
+
+  const m = /^wallbox0*(\d+)$/i.exec(wb || "");
+  return m ? `EV${m[1]}` : (wb || "");
+}
+
+// Somma dei kWh da FV di sessione (col 11). Ritorna null se ANCHE UNA sola
+// sessione del giorno non ce l'ha, cosi' il chiamante ricade sulla stima per
+// tutto il giorno.
+//
+// Serve per il giorno del passaggio di formato: le sessioni scritte prima del
+// riavvio non hanno la col 11, e sommare solo quelle che ce l'hanno farebbe
+// contare 0 il FV della mattina lasciandone i kWh nel totale -> percentuale
+// falsata. Meglio un metodo solo, coerente, per l'intero giorno.
+function sumSessionPv(sessionsMeta){
+  if (!sessionsMeta?.length) return null;
+  let tot = 0;
+  for (const s of sessionsMeta){
+    if (typeof s.pvKwh !== "number" || !isFinite(s.pvKwh)) return null;
+    tot += s.pvKwh;
+  }
+  return tot;
+}
+
 function totalKwhFromSessions(sessionsMeta){
   let tot = 0;
   for (const s of sessionsMeta){
@@ -803,117 +1000,219 @@ function totalKwhFromSessions(sessionsMeta){
 }
 
 function parseChargeSessions(txt) {
-  const lines = txt.split("\n").filter(Boolean);
+  const rows = [];
+  for (const line of txt.split("\n").filter(Boolean)) {
+    const r = chgRow(line);
+    if (r) rows.push(r);
+  }
+  if (!rows.length) return [];
 
-  const sessions = [];
-  let openStart = null;
-
-  // primo timestamp valido del file (per sessioni cross-day)
-  let firstEpoch = null;
-  for (const line of lines) {
-    const p = line.trim().split(/\s+/);
-    const e = parseInt(p[0], 10);
-    if (Number.isFinite(e)) { firstEpoch = e; break; }
+  // primo/ultimo timestamp per wallbox (sessioni cross-day e ancora aperte)
+  const firstTs = new Map(), lastTs = new Map();
+  for (const r of rows) {
+    if (!firstTs.has(r.wb)) firstTs.set(r.wb, r.ts);
+    lastTs.set(r.wb, r.ts);
   }
 
-  let crossDayUsed = false; // evita doppia sessione cross-day (Transaction.End + StopTransaction)
+  // Stato di apertura PER WALLBOX. Prima era uno solo per tutto il file, quindi
+  // due auto in carica insieme collassavano in una sessione sola e la seconda
+  // spariva dal conteggio.
+  const open         = new Map();   // wb -> epoch di apertura
+  const crossDayUsed = new Map();   // wb -> bool, evita la doppia cross-day (Transaction.End + StopTransaction)
+  const sessions     = [];
 
-  for (const line of lines) {
-    const parts = line.trim().split(/\s+/);
-    if (parts.length < 2) continue;
+  for (const r of rows) {
+    const wb = r.wb;
 
-    const epoch = parseInt(parts[0], 10);
-    if (!Number.isFinite(epoch)) continue;
-
-    const hasBegin = line.includes("Transaction.Begin");
-    const hasEnd   = line.includes("Transaction.End") || line.includes("StopTransaction");
-
-    if (hasBegin) {
-      // se la sessione è già aperta, ignora i re-trigger (es. dopo riavvio HA)
-      if (openStart == null) {
-        openStart = epoch;
-        crossDayUsed = false;
+    if (chgIsBegin(r)) {
+      // se la sessione è già aperta su questa wallbox, ignora i re-trigger (es. dopo riavvio HA)
+      if (!open.has(wb)) {
+        open.set(wb, r.ts);
+        crossDayUsed.set(wb, false);
       }
       continue;
     }
 
-    if (hasEnd) {
-      if (openStart != null) {
+    if (chgIsEnd(r)) {
+      if (open.has(wb)) {
         // sessione normale (Begin e End nello stesso file)
-        const start = openStart * 1000;
-        const end   = epoch * 1000;
-        if (end > start) sessions.push({ start, end });
-        openStart = null;
-        crossDayUsed = true; // evita che il paired StopTransaction crei una phantom cross-day
-      } else if (!crossDayUsed && firstEpoch != null) {
+        const start = open.get(wb) * 1000;
+        const end   = r.ts * 1000;
+        if (end > start) sessions.push({ start, end, wb });
+        open.delete(wb);
+        crossDayUsed.set(wb, true); // evita che il paired StopTransaction crei una phantom cross-day
+      } else if (!crossDayUsed.get(wb) && firstTs.has(wb)) {
         // sessione cross-day: Begin era nel file del giorno precedente
-        const start = firstEpoch * 1000;
-        const end   = epoch * 1000;
-        if (end > start) sessions.push({ start, end });
-        crossDayUsed = true;
+        const start = firstTs.get(wb) * 1000;
+        const end   = r.ts * 1000;
+        if (end > start) sessions.push({ start, end, wb });
+        crossDayUsed.set(wb, true);
       }
     }
   }
 
-  // se resta aperta (sessione ancora in corso) la chiudiamo "a fine file"
-  if (openStart != null) {
-    // prendo l’ultimo timestamp valido del file
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const p = lines[i].trim().split(/\s+/);
-      const last = parseInt(p[0], 10);
-      if (Number.isFinite(last) && last > openStart) {
-        sessions.push({ start: openStart * 1000, end: last * 1000 });
-        break;
-      }
+  // se restano aperte (sessioni ancora in corso) le chiudiamo "a fine file",
+  // all'ultimo timestamp della rispettiva wallbox
+  for (const [wb, startEpoch] of open) {
+    const last = lastTs.get(wb);
+    if (Number.isFinite(last) && last > startEpoch) {
+      sessions.push({ start: startEpoch * 1000, end: last * 1000, wb });
     }
   }
 
+  sessions.sort((a, b) => a.start - b.start);
   return sessions;
 }
 
 
+// === Formato _charge.dat ===
+// Colonne fisse (formato multiwallbox):
+//   0 epoch   1 hhmmss   2 .usec   3 volt   4 current   5 offered   6 power   7 wh
+//   8 tid     9 wallbox  10 session_kwh   11 session_pv_kwh   12 [context]
+//  13..21  solo su Transaction.End: start secs kwh pv_kwh grid_kwh pv% avg_kw avg_A_off avg_A_mis
+// Formato legacy (una sola wallbox): si ferma a 8, con il context all'indice 9.
+//
+// NB: split("\t") e NON /\s+/. Un campo vuoto produce due tab adiacenti e
+// /\s+/ li collasserebbe in un separatore solo, slittando tutti gli indici
+// successivi. Con il tab un campo vuoto resta "".
+const CHG_NEW_MIN_COLS = 12;
+const CHG_LEGACY_WB    = "wallbox01";
+
+function chgRow(line){
+  const parts = line.split("\t");
+  if (parts.length < 9) return null;
+
+  const ts = parseInt(parts[0], 10);
+  if (!Number.isFinite(ts)) return null;
+
+  const isNew = parts.length >= CHG_NEW_MIN_COLS;
+
+  return {
+    ts,
+    isNew,
+    wb:           isNew ? (parts[9]  || CHG_LEGACY_WB) : CHG_LEGACY_WB,
+    ctx:          isNew ? (parts[12] || "") : (parts[9] || ""),
+    powerRaw:     parts[6],
+    energyRegRaw: parts[7],
+    sessionKwh:   isNew ? parseFloat(parts[10]) : NaN,
+    sessionPvKwh: isNew ? parseFloat(parts[11]) : NaN
+  };
+}
+
+// Match ancorato al campo context, non a tutta la riga: la colonna 9 contiene
+// l'id wallbox su OGNI riga, quindi un match globale sarebbe falsabile.
+function chgIsBegin(r){ return r.ctx.includes("Transaction.Begin"); }
+function chgIsEnd(r){   return r.ctx.includes("Transaction.End") || r.ctx.includes("StopTransaction"); }
+
+// Somma più serie a gradini sull'unione dei loro timestamp. Prima del primo
+// punto una serie non contribuisce; dopo l'ultimo mantiene il valore, cosa
+// sicura perché la fine sessione inserisce uno 0 esplicito.
+function sumSeriesHold(list){
+  const series = (list || []).filter(s => s && s.length);
+  if (!series.length) return [];
+  if (series.length === 1) return series[0].slice();
+
+  const xs = [...new Set(series.flatMap(s => s.map(p => p.x)))].sort((a, b) => a - b);
+  const idx     = series.map(() => 0);
+  const cur     = series.map(() => 0);
+  const started = series.map(() => false);
+  const out = [];
+
+  for (const x of xs){
+    for (let i = 0; i < series.length; i++){
+      const s = series[i];
+      while (idx[i] < s.length && s[idx[i]].x <= x){
+        cur[i] = s[idx[i]].y;
+        started[i] = true;
+        idx[i]++;
+      }
+    }
+    let sum = 0;
+    for (let i = 0; i < series.length; i++) if (started[i]) sum += cur[i] || 0;
+    out.push({ x, y: sum });
+  }
+  return out;
+}
+
+// Ultimo valore di una serie dentro [t0,t1]: serve per session_kwh, che è
+// running, quindi l'ultimo campione della sessione È il totale di sessione.
+function lastInWindow(series, t0, t1){
+  if (!series?.length) return null;
+  let v = null;
+  for (const p of series){
+    if (p.x < t0) continue;
+    if (p.x > t1) break;
+    v = p.y;
+  }
+  return (typeof v === "number" && isFinite(v)) ? v : null;
+}
+
 function parseChargeDat(text){
   const lines = text.split("\n").filter(Boolean);
 
-  const evPower = [];
-  const evEnergy = [];
+  const byWb = new Map();
+  let isNewFormat = false;
+
+  const wbOf = (wb) => {
+    if (!byWb.has(wb)) byWb.set(wb, { power: [], energyReg: [], sessionKwh: [], sessionPvKwh: [] });
+    return byWb.get(wb);
+  };
 
   for(const line of lines){
+    const r = chgRow(line);
+    if (!r) continue;
+    if (r.isNew) isNewFormat = true;
 
-    const parts = line.split("\t");
-
-    if (parts.length < 9) continue;
-
-    const ts = parseInt(parts[0],10);
-    if (!Number.isFinite(ts)) continue;
-
-    const powerRaw = parts[6];
-    const energySession = parts[7];         // "2496/8535"
+    const w   = wbOf(r.wb);
+    const xms = r.ts * 1000;
 
     // se parts[6] contiene "/" non è potenza (es. StopTransaction sposta le colonne)
-    if (powerRaw && !powerRaw.includes("/")) {
-      const powerW = parseFloat(powerRaw);
+    if (r.powerRaw && !r.powerRaw.includes("/")) {
+      const powerW = parseFloat(r.powerRaw);
       if (Number.isFinite(powerW)){
-        evPower.push({ x: ts * 1000, y: powerW / 1000 });  // kW
+        w.power.push({ x: xms, y: powerW / 1000 });  // kW
       }
     }
 
     // segna fine sessione con 0 W così resampleHold non estende l'ultimo valore
-    if (line.includes("Transaction.End") || line.includes("StopTransaction")) {
-      evPower.push({ x: ts * 1000, y: 0 });
+    if (chgIsEnd(r)) {
+      w.power.push({ x: xms, y: 0 });
     }
 
     // accetta "NNN/NNN" o "NNN" (numeri puri) - rifiuta "120/120-1" (limite sessione)
-    if (energySession && /^[\d\/]+$/.test(energySession)){
-      const totalEnergy = parseFloat(energySession.split("/")[0]);
-
+    if (r.energyRegRaw && /^[\d\/]+$/.test(r.energyRegRaw)){
+      const totalEnergy = parseFloat(r.energyRegRaw.split("/")[0]);
       if (Number.isFinite(totalEnergy)){
-        evEnergy.push({ x: ts * 1000, y: totalEnergy / 1000 }); // kWh
+        w.energyReg.push({ x: xms, y: totalEnergy / 1000 }); // kWh
       }
     }
+
+    if (Number.isFinite(r.sessionKwh))   w.sessionKwh.push({   x: xms, y: r.sessionKwh });
+    if (Number.isFinite(r.sessionPvKwh)) w.sessionPvKwh.push({ x: xms, y: r.sessionPvKwh });
   }
 
-  return { evPower, evEnergy };
+  for (const w of byWb.values()){
+    w.power        = normalizeSeries(w.power);
+    w.energyReg    = normalizeSeries(w.energyReg);
+    w.sessionKwh   = normalizeSeries(w.sessionKwh);
+    w.sessionPvKwh = normalizeSeries(w.sessionPvKwh);
+  }
+
+  const wallboxes = [...byWb.keys()].sort();
+
+  // Il totale è la SOMMA delle wallbox, non la concatenazione: prima le righe
+  // delle due wallbox finivano nello stesso array e la curva saltellava tra i
+  // due valori invece di sommarli.
+  const evPower = sumSeriesHold(wallboxes.map(k => byWb.get(k).power));
+
+  // Il registro assoluto è per-wallbox: sommare due cumulativi indipendenti ha
+  // senso come livello, mai come delta. I kWh di sessione vengono da
+  // session_kwh (col 10) in buildSessionsMeta.
+  const evEnergy = wallboxes.length === 1
+    ? byWb.get(wallboxes[0]).energyReg
+    : sumSeriesHold(wallboxes.map(k => byWb.get(k).energyReg));
+
+  return { evPower, evEnergy, byWb, wallboxes, isNewFormat };
 }
 
 function parseSolarDat(text){
@@ -958,6 +1257,35 @@ function parseMeterDat(text){
 }
 
 
+// Colori delle serie per-wallbox: distinti da verde totale, rosa grid, azzurro solar.
+const WB_COLORS   = ["#a3e635", "#a855f7", "#f59e0b", "#14b8a6"];
+const WB_BAR_FILL = ["rgba(163,230,53,0.75)", "rgba(168,85,247,0.75)",
+                     "rgba(245,158,11,0.75)", "rgba(20,184,166,0.75)"];
+
+function wbLabel(wb){
+  return `${wbShort(wb)} (kW)`;
+}
+
+// Con una sola wallbox non aggiunge niente: la curva totale è già quella.
+function perWallboxDatasets(charge){
+  const plots = charge?.wbPlot || [];
+  if (plots.length < 2) return [];
+
+  return plots.map((p, i) => ({
+    label: wbLabel(p.wb),
+    data: p.power,
+    order: 2,
+    tension: 0.2,
+    yAxisID: "yPower",
+    parsing: false,
+    pointRadius: 0,
+    fill: false,
+    borderColor: WB_COLORS[i % WB_COLORS.length],
+    borderWidth: 1.5,
+    borderDash: [4, 3]
+  }));
+}
+
 function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
 
   const canvas = document.getElementById("historyChart");
@@ -983,6 +1311,8 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
           borderColor: "#22c55e",
           borderWidth: 2
         },
+        // una serie per wallbox, solo quando ce n'è più di una
+        ...perWallboxDatasets(charge),
         {
           label: "Grid Power (kW)",
           data: meter.gridKw,
@@ -1050,7 +1380,10 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
               const h = Math.floor(s.durMin / 60);
               const m = s.durMin % 60;
               const durStr = h > 0 ? `${h}h ${String(m).padStart(2,"0")}min` : `${m}min`;
-              return `Sessione #${s.n} · ${fmt(s.start)} → ${fmt(s.end)} · ${durStr} · ${kwhStr}`;
+              // con piu' wallbox la sessione va attribuita, altrimenti "#2" e' ambiguo
+              const wbStr = (charge?.wallboxes?.length > 1 && s.wb) ? ` (${wbShort(s.wb)})` : "";
+              const pvStr = (typeof s.pvKwh === "number" && isFinite(s.pvKwh)) ? ` · FV ${s.pvKwh.toFixed(2)} kWh` : "";
+              return `Sessione #${s.n}${wbStr} · ${fmt(s.start)} → ${fmt(s.end)} · ${durStr} · ${kwhStr}${pvStr}`;
             }
 
           }

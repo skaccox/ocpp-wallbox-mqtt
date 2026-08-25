@@ -43,8 +43,19 @@ WALLBOX_MQTT_NAME="$(bashio::config 'wallbox_mqtt_name')"
 DATA_DIR="$(bashio::config 'data_dir')"
 DEFAULT_VIEW="$(bashio::config 'default_view')"
 
-CODE_REPO="https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
-CODE_REF="main"
+# ---- Sorgente del codice (repo/branch configurabili dalle opzioni) ----
+DEFAULT_CODE_REPO="https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
+DEFAULT_CODE_REF="main"
+
+CODE_REPO="$(bashio::config 'code_repo')"
+CODE_REF="$(bashio::config 'code_ref')"
+
+if [ -z "${CODE_REPO}" ] || [ "${CODE_REPO}" = "null" ]; then
+  CODE_REPO="${DEFAULT_CODE_REPO}"
+fi
+if [ -z "${CODE_REF}" ] || [ "${CODE_REF}" = "null" ]; then
+  CODE_REF="${DEFAULT_CODE_REF}"
+fi
 AUTO_UPDATE="$(bashio::config 'auto_update')"
 FORCE_UPDATE_ONCE=false
 if bashio::config.true 'single_update_now'; then
@@ -103,20 +114,111 @@ git_try_update() {
 }
 
 # ---- Clone / Update ----
-if [ ! -d "${APP_DIR}/.git" ]; then
-  # Prima installazione: senza rete non possiamo andare avanti
-  bashio::log.info "Cloning ocpp-mqtt-perl-server..."
 
-  # piccola attesa rete (max ~15s) per evitare fail subito
-  tries=0
-  while [ $tries -lt 5 ]; do
-    if have_net; then break; fi
+normalize_url() {
+  # Ignora differenze irrilevanti (slash finale, suffisso .git) per non
+  # rifare set-url a ogni avvio.
+  local u="$1"
+  u="${u%/}"
+  u="${u%.git}"
+  printf '%s' "${u}"
+}
+
+wait_net() {
+  local tries=0
+  while [ ${tries} -lt 5 ]; do
+    if have_net; then return 0; fi
     tries=$((tries+1))
     bashio::log.warning "Rete non pronta (tentativo ${tries}/5). Attendo 3s..."
     sleep 3
   done
+  return 1
+}
 
-  if ! have_net; then
+git_reconcile_remote() {
+  # Allinea origin alla URL configurata: sulle installazioni esistenti il clone
+  # non viene rifatto, quindi senza questo origin resterebbe sul repo vecchio.
+  local current
+  current="$(git -C "${APP_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+
+  if [ -z "${current}" ]; then
+    bashio::log.warning "Remote 'origin' assente in ${APP_DIR}: lo imposto a ${CODE_REPO}"
+    git -C "${APP_DIR}" remote add origin "${CODE_REPO}" || return 1
+    REPO_CHANGED=true
+    return 0
+  fi
+
+  if [ "$(normalize_url "${current}")" != "$(normalize_url "${CODE_REPO}")" ]; then
+    bashio::log.info "Repo cambiato nelle opzioni: ${current} -> ${CODE_REPO}"
+    git -C "${APP_DIR}" remote set-url origin "${CODE_REPO}" || return 1
+    REPO_CHANGED=true
+  fi
+  return 0
+}
+
+git_current_ref() {
+  # Nome del branch, altrimenti tag esatto, altrimenti SHA (HEAD distaccato).
+  local r
+  r="$(git -C "${APP_DIR}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ -n "${r}" ]; then printf '%s' "${r}"; return 0; fi
+  r="$(git -C "${APP_DIR}" describe --tags --exact-match HEAD 2>/dev/null || true)"
+  if [ -n "${r}" ]; then printf '%s' "${r}"; return 0; fi
+  git -C "${APP_DIR}" rev-parse HEAD 2>/dev/null || true
+}
+
+git_switch_ref() {
+  # Cambiare ref richiede un checkout, non basta il pull.
+  # NB: non usiamo mai "git clean": ocpp.ini, i log e data/ vivono dentro
+  # questo working tree e non sono tracciati.
+  set +e
+
+  git -C "${APP_DIR}" fetch --prune --tags origin >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    bashio::log.warning "Git fetch da ${CODE_REPO} fallito (rete o repo non raggiungibile). Mantengo la versione attuale."
+    set -e
+    return 1
+  fi
+
+  local ok=1
+  if git -C "${APP_DIR}" rev-parse --verify --quiet "refs/remotes/origin/${CODE_REF}" >/dev/null 2>&1; then
+    git -C "${APP_DIR}" checkout -B "${CODE_REF}" "origin/${CODE_REF}" >/dev/null 2>&1 && ok=0
+    if [ ${ok} -ne 0 ]; then
+      bashio::log.warning "Checkout di ${CODE_REF} bloccato da modifiche locali: forzo (i file non tracciati - ocpp.ini, log, data/ - non vengono toccati)."
+      git -C "${APP_DIR}" checkout -f -B "${CODE_REF}" "origin/${CODE_REF}" >/dev/null 2>&1 && ok=0
+    fi
+    if [ ${ok} -eq 0 ]; then
+      git -C "${APP_DIR}" branch --set-upstream-to="origin/${CODE_REF}" "${CODE_REF}" >/dev/null 2>&1
+    fi
+  elif git -C "${APP_DIR}" rev-parse --verify --quiet "${CODE_REF}^{commit}" >/dev/null 2>&1; then
+    # tag o SHA: HEAD distaccato
+    git -C "${APP_DIR}" checkout --detach "${CODE_REF}" >/dev/null 2>&1 && ok=0
+    if [ ${ok} -ne 0 ]; then
+      git -C "${APP_DIR}" checkout -f --detach "${CODE_REF}" >/dev/null 2>&1 && ok=0
+    fi
+  else
+    bashio::log.error "Ref '${CODE_REF}' non trovato su ${CODE_REPO}. Verifica repo/branch nelle opzioni."
+    set -e
+    return 1
+  fi
+
+  set -e
+  if [ ${ok} -ne 0 ]; then
+    bashio::log.error "Impossibile passare a ${CODE_REF}."
+    return 1
+  fi
+
+  bashio::log.info "Ora su ${CODE_REF} da ${CODE_REPO}"
+  return 0
+}
+
+REPO_CHANGED=false
+REF_CHANGED=false
+
+if [ ! -d "${APP_DIR}/.git" ]; then
+  # Prima installazione: senza rete non possiamo andare avanti
+  bashio::log.info "Cloning ocpp-mqtt-perl-server..."
+
+  if ! wait_net; then
     bashio::log.error "Rete non disponibile: impossibile clonare ${CODE_REPO}. Riprova quando HA ha connettività."
     exit 1
   fi
@@ -127,32 +229,38 @@ if [ ! -d "${APP_DIR}/.git" ]; then
     exit 1
   fi
 else
-  if bashio::config.true 'auto_update' || [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
-    # rete spesso non pronta subito: pochi retry, ma non blocchiamo lo start
-    tries=0
-    while [ $tries -lt 5 ]; do
-      if have_net; then
-        bashio::log.info "Aggiornamento (git pull)..."
-        git_try_update
-        break
-      fi
-      tries=$((tries+1))
-      bashio::log.warning "Rete non pronta per git pull (tentativo ${tries}/5). Attendo 3s..."
-      sleep 3
-    done
+  # 1) origin deve puntare alla URL configurata
+  git_reconcile_remote || bashio::log.warning "Non ho potuto aggiornare l'URL di origin."
 
-    if ! have_net; then
+  # 2) il ref in uso deve essere quello configurato
+  CURRENT_REF="$(git_current_ref)"
+  if [ "${CURRENT_REF}" != "${CODE_REF}" ]; then
+    REF_CHANGED=true
+    bashio::log.info "Ref cambiato nelle opzioni: ${CURRENT_REF:-sconosciuto} -> ${CODE_REF}"
+  fi
+
+  if [ "${REPO_CHANGED}" = "true" ] || [ "${REF_CHANGED}" = "true" ]; then
+    # Cambio esplicito nelle opzioni: si applica anche con auto_update disattivo.
+    if wait_net; then
+      git_switch_ref || bashio::log.warning "Cambio repo/ref non applicato: avvio la versione attuale."
+    else
+      bashio::log.warning "Rete non disponibile: cambio repo/ref rinviato al prossimo avvio."
+    fi
+  elif bashio::config.true 'auto_update' || [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
+    if wait_net; then
+      bashio::log.info "Aggiornamento (git pull)..."
+      git_try_update
+    else
       bashio::log.warning "Rete ancora non disponibile: salto auto_update e avvio la versione attuale."
     fi
-
-    # se era un update one-shot, resettalo nelle option
-    if [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
-      bashio::log.info "Reset update_now flag"
-      bashio::addon.option single_update_now false
-    fi
-
   else
     bashio::log.info "Auto update disabled, skipping git update"
+  fi
+
+  # se era un update one-shot, resettalo nelle option
+  if [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
+    bashio::log.info "Reset update_now flag"
+    bashio::addon.option single_update_now false
   fi
 fi
 
@@ -169,32 +277,129 @@ if [ ! -f "${APP_DIR}/ocpp.pl" ]; then
   exit 1
 fi
 
+# ---- Template ini ----
+ini_template_path () {
+  if [ -f "${APP_DIR}/ocpp-default.ini" ]; then
+    printf '%s' "${APP_DIR}/ocpp-default.ini"
+  elif [ -f "${APP_DIR}/default.ini" ]; then
+    printf '%s' "${APP_DIR}/default.ini"
+  fi
+}
+
+INI_TEMPLATE="$(ini_template_path)"
+
 # ---- Create ini if missing ----
 if [ ! -f "${INI_FILE}" ]; then
   mkdir -p "$(dirname "${INI_FILE}")"
 
-  if [ -f "${APP_DIR}/ocpp-default.ini" ]; then
-    cp -f "${APP_DIR}/ocpp-default.ini" "${INI_FILE}"
-    bashio::log.info "Creato ${INI_FILE} da ocpp-default.ini"
-  elif [ -f "${APP_DIR}/default.ini" ]; then
-    cp -f "${APP_DIR}/default.ini" "${INI_FILE}"
-    bashio::log.info "Creato ${INI_FILE} da default.ini"
-  else
+  if [ -z "${INI_TEMPLATE}" ]; then
     bashio::log.error "Non trovo ${INI_FILE} e non trovo template ini (ocpp-default.ini/default.ini) in ${APP_DIR}"
     exit 1
   fi
+
+  cp -f "${INI_TEMPLATE}" "${INI_FILE}"
+  bashio::log.info "Creato ${INI_FILE} da $(basename "${INI_TEMPLATE}")"
 fi
 
+# ---- Helper ini ----
+
+ini_has_key () {
+  # vero se la chiave esiste, attiva o commentata
+  grep -qE "^[[:space:]]*#?[[:space:]]*$1=" "${INI_FILE}"
+}
+
+ini_insert_block () {
+  # Inserisce un blocco di righe nella sezione globale, cioè PRIMA della prima
+  # sezione [..]. Appendere a fine file finirebbe dentro l'ultima sezione.
+  BLOCK="$1" awk '
+    BEGIN { ins=0 }
+    {
+      if (!ins && $0 ~ /^[[:space:]]*\[/) { printf "%s\n", ENVIRON["BLOCK"]; ins=1 }
+      print
+    }
+    END { if (!ins) printf "%s\n", ENVIRON["BLOCK"] }
+  ' "${INI_FILE}" > "${INI_FILE}.tmp" && mv "${INI_FILE}.tmp" "${INI_FILE}"
+}
+
+ini_merge_defaults () {
+  # ocpp.ini non viene mai sovrascritto dopo la creazione: sulle installazioni
+  # esistenti le chiavi nuove del template non comparirebbero mai. Qui le
+  # aggiungiamo COMMENTATE col loro default, così restano visibili e
+  # documentate senza cambiare il comportamento attuale.
+  # Gira una volta per ogni versione del template (stamp sul suo hash).
+  local tmpl="$1"
+  local stamp="${APP_DIR}/.addon-ini-merged"
+  local cur_sig
+
+  [ -z "${tmpl}" ] && return 0
+  [ -f "${tmpl}" ] || return 0
+
+  cur_sig="$(md5sum "${tmpl}" 2>/dev/null | awk '{print $1}')"
+  if [ -z "${cur_sig}" ]; then
+    cur_sig="$(wc -c < "${tmpl}" | tr -d ' ')"
+  fi
+
+  if [ -f "${stamp}" ] && [ "$(cat "${stamp}" 2>/dev/null)" = "${cur_sig}" ]; then
+    return 0
+  fi
+
+  bashio::log.info "Confronto ${INI_FILE} con $(basename "${tmpl}")..."
+
+  local block=""
+  local n=0
+  local key raw
+
+  while IFS=$'\t' read -r key raw; do
+    [ -z "${key}" ] && continue
+    if ini_has_key "${key}"; then continue; fi
+    block="${block}#${raw}
+"
+    n=$((n+1))
+    bashio::log.info "  + ${key}"
+  done <<EOF
+$(awk '
+  /^[[:space:]]*\[/ { exit }
+  {
+    s = $0
+    sub(/^[[:space:]]+/, "", s)
+    if (s ~ /^#/) { sub(/^#[[:space:]]*/, "", s) }
+    if (s ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+      k = s
+      sub(/=.*$/, "", k)
+      printf "%s\t%s\n", k, s
+    }
+  }
+' "${tmpl}")
+EOF
+
+  if [ ${n} -gt 0 ]; then
+    ini_insert_block "# --- Chiavi aggiunte dall'add-on dal template (default, commentate) ---
+${block}"
+    bashio::log.info "Aggiunte ${n} chiavi mancanti a ${INI_FILE}"
+  else
+    bashio::log.info "Nessuna chiave nuova nel template."
+  fi
+
+  printf '%s' "${cur_sig}" > "${stamp}"
+}
+
+ini_merge_defaults "${INI_TEMPLATE}"
 
 set_kv () {
   local key="$1"
   local value="$2"
+
+  if [ "${value}" = "null" ]; then
+    value=""
+  fi
 
   if [ -z "${value}" ]; then
     return 0
   fi
 
   # Caso speciale: GRID_LIMIT e GRID_LIMIT_SAFE
+  # Non vengono mai attivate né aggiunte: se non sono già attive nell'ini,
+  # l'utente deve deciderlo esplicitamente.
   if [ "${key}" = "GRID_LIMIT" ] || [ "${key}" = "GRID_LIMIT_SAFE" ]; then
     if grep -qE "^[[:space:]]*${key}=" "${INI_FILE}"; then
       awk -v k="$key" -v v="$value" '
@@ -216,7 +421,7 @@ set_kv () {
 
   # Comportamento standard per tutte le altre chiavi
 
-  # 1️ se esiste attiva → aggiorna
+  # 1 se esiste attiva → aggiorna
   if grep -qE "^[[:space:]]*${key}=" "${INI_FILE}"; then
     awk -v k="$key" -v v="$value" '
       BEGIN { done=0 }
@@ -232,7 +437,7 @@ set_kv () {
     return 0
   fi
 
-  # 2️ se esiste commentata → decommenta
+  # 2 se esiste commentata → decommenta
   if grep -qE "^[[:space:]]*#[[:space:]]*${key}=" "${INI_FILE}"; then
     awk -v k="$key" -v v="$value" '
       BEGIN { done=0 }
@@ -248,9 +453,12 @@ set_kv () {
     return 0
   fi
 
-  bashio::log.warning "Chiave ${key} non trovata in ${INI_FILE} — NON aggiunta."
+  # 3 non esiste → la aggiungo nella sezione globale
+  # (le chiavi per-wallbox esistono già nel template dentro [wallbox01],
+  #  quindi in pratica qui arrivano solo chiavi globali)
+  ini_insert_block "${key}=${value}"
+  bashio::log.info "Chiave ${key} assente in ${INI_FILE} — aggiunta (${key}=${value})."
 }
-
 
 
 bashio::log.info "Aggiorno ${INI_FILE} dai parametri add-on..."
@@ -293,11 +501,17 @@ set_kv "METER_MQTT_L3_CURRENT" "${METER_MQTT_L3_CURRENT}"
 
 set_kv "DATADIR" "${DATA_DIR}"
 
+# I parametri di tuning multiwallbox (WALLBOX1_SHARE, PRIORITY_WALLBOX,
+# WAIT_SUSPEND/RESUME/PRIORITY) NON sono opzioni dell'add-on: chi li vuole li
+# imposta in ocpp.ini. Il merge col template li ha gia' aggiunti commentati
+# col loro default, quindi basta decommentarli.
+
 bashio::log.info "Avvio web log viewer (Python) su porta 8099 (Ingress)"
 
 export OCPP_DATA_DIR="${APP_DIR}/${DATA_DIR:-data}"
 export OCPP_LOG="${APP_DIR}/ocpp.log"
 export OCPP_DEFAULT_VIEW="${DEFAULT_VIEW:-live}"
+export OCPP_INI="${INI_FILE}"
 
 python3 - <<'PY' &
 import os
@@ -309,6 +523,41 @@ LOG          = os.environ["OCPP_LOG"]
 INDEX        = "/var/www/index.html"
 DATA_DIR     = os.environ["OCPP_DATA_DIR"]
 DEFAULT_VIEW = os.environ.get("OCPP_DEFAULT_VIEW", "live")
+INI          = os.environ.get("OCPP_INI", "")
+
+def wallbox_names(path):
+    """Mappa sezione ini -> nome leggibile della wallbox.
+
+    Una sezione conta come wallbox se contiene almeno un parametro WALLBOX*,
+    che e' la stessa regola del server (ocpp_ini.pm): il nome della sezione e'
+    arbitrario, [wallbox01] e' solo convenzione. Il nome mostrato e'
+    WALLBOX_MQTT_NAME, con l'id di sezione come ripiego.
+
+    La colonna 9 di _charge.dat contiene proprio l'id di sezione, quindi questa
+    mappa e' esattamente cio' che serve per etichettare i grafici.
+    """
+    sections = []
+    cur = None
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for raw in f:
+                s = raw.strip()
+                if s.startswith("[") and s.endswith("]"):
+                    cur = (s[1:-1].strip(), {})
+                    sections.append(cur)
+                    continue
+                if cur is None or not s or s[0] in "#;" or "=" not in s:
+                    continue
+                k, v = s.split("=", 1)
+                cur[1][k.strip()] = v.strip()
+    except OSError:
+        return {}
+
+    out = {}
+    for name, kv in sections:
+        if any(k.startswith("WALLBOX") for k in kv):
+            out[name] = kv.get("WALLBOX_MQTT_NAME") or name
+    return out
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -322,7 +571,10 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(json.dumps({"default_view": DEFAULT_VIEW}).encode())
+            self.wfile.write(json.dumps({
+                "default_view": DEFAULT_VIEW,
+                "wallbox_names": wallbox_names(INI),
+            }).encode())
             return
 
         if u.path in ("/", "/index.html"):
@@ -333,7 +585,15 @@ class H(BaseHTTPRequestHandler):
             try:
                 with open(INDEX, "rb") as f:
                     html = f.read()
-                inject = f'<script>window.OCPP_DEFAULT_VIEW="{DEFAULT_VIEW}";</script>'.encode()
+                # stesso canale gia' usato per default_view: iniettato nella
+                # pagina, quindi disponibile prima che i grafici disegnino,
+                # senza un fetch in piu' da gestire
+                inject = (
+                    '<script>'
+                    f'window.OCPP_DEFAULT_VIEW="{DEFAULT_VIEW}";'
+                    f'window.OCPP_WALLBOX_NAMES={json.dumps(wallbox_names(INI))};'
+                    '</script>'
+                ).encode()
                 html = html.replace(b"</head>", inject + b"</head>", 1)
                 self.wfile.write(html)
             except FileNotFoundError:

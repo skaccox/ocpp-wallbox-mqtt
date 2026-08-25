@@ -6,8 +6,15 @@ This Home Assistant add-on runs the OCPP MQTT Perl Server to integrate OCPP-comp
 
 It enables advanced load management, grid limit protection, solar surplus charging and dynamic power control.
 
-The add-on wraps the original project:
+The add-on wraps the OCPP MQTT Perl Server, originally by Luca Bonissi:
 https://gitlab.com/lucabon/ocpp-mqtt-perl-server
+
+By default it runs the multi-wallbox capable fork, and both the repository and
+the branch are add-on options (`code_repo` / `code_ref`), so you can point it
+at upstream or at any fork:
+https://gitlab.com/skaccox/ocpp-mqtt-perl-server
+
+Two wallboxes are supported: the first connects on port 9000, the second on 9001.
 
 It supports core OCPP features for managing charging sessions and reporting meter data, and includes dynamic load management to automatically adjust the charger’s power limits based on configurable rules (e.g., time of day / day of week) to optimize grid import and comply with power constraints.
 

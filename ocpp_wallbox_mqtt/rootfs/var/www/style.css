@@ -655,3 +655,11 @@ body.history-mode #status {
   border-radius:6px;
   background:rgba(255,255,255,.03);
 }
+
+/* scomposizione per wallbox accanto a "EV Total" (solo con piu' di una wallbox) */
+.wbSplit {
+  opacity: .65;
+  font-size: .85em;
+  font-weight: 400;
+  margin-left: 2px;
+}

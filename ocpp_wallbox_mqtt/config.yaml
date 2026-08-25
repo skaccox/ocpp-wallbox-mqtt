@@ -1,7 +1,7 @@
 name: "OCPP Wallbox MQTT Server"
 slug: "ocpp_wallbox_mqtt"
 description: "OCPP Wallbox MQTT Server"
-version: "1.0.4.14"
+version: "1.0.6.0"
 url: "https://github.com/skaccox/ocpp-wallbox-mqtt"
 documentation: "https://gitlab.com/lucabon/ocpp-mqtt-perl-server"
 
@@ -34,6 +34,9 @@ services:
   - mqtt:need
 
 options:
+  code_repo: "https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
+  code_ref: "main"
+
   wallbox_set_limit_unit: "W"
   wallbox_set_limit_mainstep: 1
   wallbox_set_limit_finestep: 0.01
@@ -81,6 +84,9 @@ options:
   single_update_now: false
 
 schema:
+  code_repo: str
+  code_ref: str
+
   wallbox_set_limit_unit: "list(W|A)"
   wallbox_set_limit_mainstep: float
   wallbox_set_limit_finestep: float

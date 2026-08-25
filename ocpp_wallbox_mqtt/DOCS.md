@@ -177,6 +177,117 @@ Example: `home/pv` → the add-on reads `home/pv/power`
 
 ---
 
+### 🧭 Code source
+
+The add-on does not bundle the OCPP server: it clones it into
+`/config/ocpp-mqtt-perl-server` at first start. Both the repository and the
+ref are options, so you can point the add-on at a fork or a specific branch.
+
+#### `code_repo`
+Git URL of the OCPP/MQTT Perl server to run.
+
+Default:
+- `https://gitlab.com/skaccox/ocpp-mqtt-perl-server.git` (multi-wallbox capable fork)
+
+Upstream is `https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git`.
+
+#### `code_ref`
+Branch, tag or commit SHA to check out.
+
+Default:
+- `main`
+
+Changing either option is applied **on the next add-on restart, even with
+`auto_update` disabled**, because it is an explicit request:
+
+- `code_repo` changed → `git remote set-url origin <new url>`
+- `code_ref` changed → `git fetch` + checkout of the new ref
+
+> ℹ️ If the working tree has local modifications to tracked files, the
+> checkout is forced so the configured ref always wins. Untracked files —
+> `ocpp.ini`, `ocpp.log`, `charge.log` and `data/` all live inside that
+> directory — are never touched, and `git clean` is never run.
+
+---
+
+### 🔌🔌 Multi-wallbox
+
+Two wallboxes are supported: the first connects on **port 9000**, the second on
+**9001**. There is nothing to configure for this — point the second wallbox at
+port 9001 and it works.
+
+Those ports are deliberately **not** add-on options. The server binds both by
+default, and since the add-on runs with `host_network: true` it binds them
+straight on the Home Assistant host, with no port mapping in between — so there
+would be nothing for an add-on setting to do.
+
+To move them, set `LISTEN0` and/or `LISTEN1` in `ocpp.ini`: the server reads any
+`LISTEN<n>` key as the listening port of the n-th wallbox. Both are already in
+your `ocpp.ini` as commented defaults, so uncomment and edit. The add-on never
+writes those keys, so whatever you put there stays.
+
+**The power-sharing parameters are not add-on options: they live in
+`ocpp.ini`.** They are tuning knobs you set once and rarely touch, and putting
+them in the add-on UI would only duplicate the ini — with the add-on
+overwriting your ini value at every restart.
+
+You do not have to add them by hand. On the first start after an update the
+add-on compares `ocpp.ini` with the `ocpp-default.ini` shipped by the server
+and appends any missing key **commented, with its default value**, in the
+global section. So the keys below are already in your `ocpp.ini`: find them,
+uncomment, set. Existing values are never touched.
+
+| key | what it does | default |
+|---|---|---|
+| `WALLBOX1_SHARE` | share of available power for the first wallbox: a number `0`-`100`, or one of the symbolic quotas below written without the `SHARE_` prefix | `EQUAL_POWER` |
+| `PRIORITY_WALLBOX` | which wallbox keeps charging when there is not enough power for both (`1` or `2`) | `1` |
+| `WAIT_SUSPEND` | delay before suspending a wallbox | `360s` |
+| `WAIT_RESUME` | delay before resuming one | `360s` |
+| `WAIT_PRIORITY` | how long a suspension in progress is protected from being inverted by a change of `PRIORITY_WALLBOX` | `360s` |
+
+#### Naming the wallboxes in the graphs
+
+Each wallbox is a `[section]` in `ocpp.ini` — any section holding a `WALLBOX*`
+parameter counts as one, so `[wallbox01]` is only a convention and the name is
+yours to choose. Set `WALLBOX_MQTT_NAME` inside the section and that name is
+what the graphs use:
+
+```ini
+[wallbox01]
+WALLBOX_MQTT_BASE=wallbox01
+WALLBOX_MQTT_NAME=Garage
+
+[wallbox02]
+WALLBOX_MQTT_BASE=wallbox02
+WALLBOX_MQTT_NAME=Cortile
+```
+
+The names show up as series labels in the daily chart, as bar labels in the
+week/month chart, in the `EV Total` breakdown and in the session tooltip. If a
+section has no `WALLBOX_MQTT_NAME` the graphs fall back to `EV1`/`EV2` for
+`wallboxNN` sections, or to the section id for any other name. Renaming takes
+effect on the next page reload.
+
+---
+
+The symbolic quotas are `SHARE_WB1_ONLY`, `SHARE_EQUAL_POWER`,
+`SHARE_EQUAL_PROGRESS`, `SHARE_WB2_ONLY`, also in `ocpp.ini`.
+`EQUAL_PROGRESS` is the quota that makes two cars of different battery size
+gain the same percentage per hour.
+
+For the `WAIT_*` timings a bare number up to 20 is read as loop ticks; add `s`
+for seconds. Reducing power is immediate — changing the *number* of active
+wallboxes is delayed, because household peaks are transient and closing a
+session has a cost.
+
+> ℹ️ Home Assistant decides the split and the priority; the server only
+> allocates power and knows nothing about cars or state of charge. The ini
+> values are the starting point — normally they are then overwritten over MQTT
+> on `ocpp/config/general/WALLBOX1_SHARE` and `.../PRIORITY_WALLBOX`, so an
+> automation can drive them without touching the file.
+
+---
+
 ### 🔄 Auto update
 
 #### `auto_update`
