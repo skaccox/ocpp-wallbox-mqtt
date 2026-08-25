@@ -559,10 +559,16 @@ def wallbox_names(path):
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             for raw in f:
                 s = raw.strip()
-                if s.startswith("[") and s.endswith("]"):
-                    cur = (s[1:-1].strip(), {})
-                    sections.append(cur)
-                    continue
+                # "[nome]" con eventuale commento in coda: chiudere sulla prima "]"
+                # invece di pretendere che la riga finisca lì. Con endswith("]")
+                # un "[wallbox02] ; garage" non apriva la sezione e le sue chiavi
+                # finivano attribuite a quella precedente.
+                if s.startswith("["):
+                    end = s.find("]")
+                    if end > 0:
+                        cur = (s[1:end].strip(), {})
+                        sections.append(cur)
+                        continue
                 if cur is None or not s or s[0] in "#;" or "=" not in s:
                     continue
                 k, v = s.split("=", 1)

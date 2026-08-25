@@ -1,4 +1,13 @@
 # Changelog
+## [1.0.6.4] - 2026-08-25
+- FIX la mappa nomi wallbox perdeva una sezione con un commento in coda
+  all'header ("[wallbox02] ; garage"): non veniva aperta e le sue chiavi
+  finivano attribuite alla sezione precedente
+## [1.0.6.3] - 2026-08-25
+- FIX i grafici dicevano quale wallbox aveva caricato solo se ne comparivano due
+  nel periodo caricato: con una wallbox al giorno (giardino oggi, garage domani)
+  ogni giorno ne aveva una sola e i due giorni si disegnavano identici, senza
+  dire quale. Ora il gate guarda le wallbox configurate, non quelle nei dati
 ## [1.0.6.2] - 2026-08-25
 - FIX il merge di ocpp.ini col template copiava le chiavi nuove senza i commenti
   che le descrivono: restava un elenco di nomi senza spiegazione

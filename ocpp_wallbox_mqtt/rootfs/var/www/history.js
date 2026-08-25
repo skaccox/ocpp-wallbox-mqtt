@@ -363,12 +363,13 @@ function wallboxesInTotals(totals){
   return [...set].sort();
 }
 
-// Barre EV del grafico a periodo: una sola col totale se c'e' una wallbox,
-// altrimenti una per wallbox nello stesso stack.
+// Barre EV del grafico a periodo: una sola col totale su un impianto a una
+// wallbox, altrimenti una per wallbox nello stesso stack (anche se nel periodo
+// ne ha caricata una sola: e' proprio il caso in cui serve sapere quale).
 function evBarDatasets(totals){
   const wbs = wallboxesInTotals(totals);
 
-  if (wbs.length < 2) {
+  if (!wbs.length || !wbIdentifyNeeded(wbs.length)) {
     return [{
       label: "EV Charged (kWh)",
       metric: "ev",
@@ -952,10 +953,12 @@ function mergeKwhByWallbox(list){
   return out;
 }
 
-// "EV1 2.00 · EV2 5.00" - stringa vuota con una sola wallbox: il totale basta.
+// "EV1 2.00 · EV2 5.00" - vuota su un impianto a una wallbox: il totale
+// basta. Su un impianto multiplo la mostra anche con una sola wallbox nei dati:
+// e' l'unico posto che dice quale ha caricato quel giorno.
 function wbBreakdownText(byWb, unit = " kWh"){
   const keys = Object.keys(byWb || {}).sort();
-  if (keys.length < 2) return "";
+  if (!keys.length || !wbIdentifyNeeded(keys.length)) return "";
   return keys.map(wb => `${wbShort(wb)} ${(byWb[wb] || 0).toFixed(2)}${unit}`).join(" · ");
 }
 
@@ -971,6 +974,24 @@ function wbShort(wb){
 
   const m = /^wallbox0*(\d+)$/i.exec(wb || "");
   return m ? `EV${m[1]}` : (wb || "");
+}
+
+// Quante wallbox ha l'IMPIANTO, non quante compaiono nei dati caricati.
+// La mappa iniettata dal server elenca le sezioni di ocpp.ini che sono wallbox.
+function wbConfiguredCount(){
+  const named = (typeof window !== "undefined" && window.OCPP_WALLBOX_NAMES) || {};
+  return Object.keys(named).length;
+}
+
+// Vero quando ha senso dire QUALE wallbox ha caricato.
+//
+// Non basta contare le wallbox presenti nei dati: se un giorno carico in
+// giardino e il giorno dopo in garage, ogni singolo giorno ne ha una sola e i
+// due giorni si disegnerebbero identici, senza dire quale. Decide la
+// configurazione; il conteggio dei dati resta come ripiego per quando la mappa
+// manca (server vecchio, sezioni senza parametri WALLBOX*).
+function wbIdentifyNeeded(dataCount){
+  return wbConfiguredCount() > 1 || (dataCount || 0) > 1;
 }
 
 // Somma dei kWh da FV di sessione (col 11). Ritorna null se ANCHE UNA sola
@@ -1381,7 +1402,7 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
               const m = s.durMin % 60;
               const durStr = h > 0 ? `${h}h ${String(m).padStart(2,"0")}min` : `${m}min`;
               // con piu' wallbox la sessione va attribuita, altrimenti "#2" e' ambiguo
-              const wbStr = (charge?.wallboxes?.length > 1 && s.wb) ? ` (${wbShort(s.wb)})` : "";
+              const wbStr = (wbIdentifyNeeded(charge?.wallboxes?.length) && s.wb) ? ` (${wbShort(s.wb)})` : "";
               const pvStr = (typeof s.pvKwh === "number" && isFinite(s.pvKwh)) ? ` · FV ${s.pvKwh.toFixed(2)} kWh` : "";
               return `Sessione #${s.n}${wbStr} · ${fmt(s.start)} → ${fmt(s.end)} · ${durStr} · ${kwhStr}${pvStr}`;
             }
