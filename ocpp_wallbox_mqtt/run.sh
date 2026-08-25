@@ -349,25 +349,42 @@ ini_merge_defaults () {
   local n=0
   local key raw
 
+  # Nel template ogni chiave e' descritta dai commenti che la precedono: senza
+  # di quelli nell'ini resta un elenco di nomi senza spiegazione. awk emette un
+  # record per chiave (commenti + riga della chiave, unite da \001) perche'
+  # read ne legge una per volta.
   while IFS=$'\t' read -r key raw; do
     [ -z "${key}" ] && continue
     if ini_has_key "${key}"; then continue; fi
-    block="${block}#${raw}
+    block="${block}${raw//$'\001'/$'\n'}
 "
     n=$((n+1))
     bashio::log.info "  + ${key}"
   done <<EOF
-$(awk '
+$(awk -v SEP=$'\001' '
   /^[[:space:]]*\[/ { exit }
   {
     s = $0
     sub(/^[[:space:]]+/, "", s)
-    if (s ~ /^#/) { sub(/^#[[:space:]]*/, "", s) }
-    if (s ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
-      k = s
+    sub(/[[:space:]]+$/, "", s)
+
+    # riga vuota: il commento accumulato non descrive la chiave che segue
+    if (s == "") { doc = ""; next }
+
+    bare = s
+    if (bare ~ /^#/) { sub(/^#[[:space:]]*/, "", bare) }
+
+    if (bare ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+      k = bare
       sub(/=.*$/, "", k)
-      printf "%s\t%s\n", k, s
+      # riga vuota di stacco solo per le chiavi che hanno una descrizione
+      printf "%s\t%s#%s\n", k, (doc == "" ? "" : SEP doc), bare
+      doc = ""
+      next
     }
+
+    # commento di prosa: documentazione della chiave che segue
+    if (s ~ /^#/) { doc = doc s SEP }
   }
 ' "${tmpl}")
 EOF
