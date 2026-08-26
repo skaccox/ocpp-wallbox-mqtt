@@ -1404,7 +1404,7 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
               // con piu' wallbox la sessione va attribuita, altrimenti "#2" e' ambiguo
               const wbStr = (wbIdentifyNeeded(charge?.wallboxes?.length) && s.wb) ? ` (${wbShort(s.wb)})` : "";
               const pvStr = (typeof s.pvKwh === "number" && isFinite(s.pvKwh)) ? ` · FV ${s.pvKwh.toFixed(2)} kWh` : "";
-              return `Sessione #${s.n}${wbStr} · ${fmt(s.start)} → ${fmt(s.end)} · ${durStr} · ${kwhStr}${pvStr}`;
+              return `#${s.n}${wbStr} · ${fmt(s.start)} → ${fmt(s.end)} · ${durStr} · ${kwhStr}${pvStr}`;
             }
 
           }

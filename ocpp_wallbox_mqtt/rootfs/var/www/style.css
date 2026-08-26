@@ -308,7 +308,7 @@ body.history-mode #status {
   border-radius: 14px;
   background: linear-gradient(145deg,#0f172a,#0b1220);
   border: 1px solid rgba(255,255,255,.08);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .historyStats span {

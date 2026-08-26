@@ -1,4 +1,8 @@
 # Changelog
+## [1.0.6.5] - 2026-08-26
+- FIX la riga di riepilogo delle sessioni nei grafici non stava nello spazio
+  disponibile: rimossa la parola "Sessione" davanti al numero e ridotto di un
+  punto il font della barra statistiche
 ## [1.0.6.4] - 2026-08-25
 - FIX la mappa nomi wallbox perdeva una sezione con un commento in coda
   all'header ("[wallbox02] ; garage"): non veniva aperta e le sue chiavi
