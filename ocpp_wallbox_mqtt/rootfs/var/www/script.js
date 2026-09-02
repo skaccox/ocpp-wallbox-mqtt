@@ -75,6 +75,22 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
       elRefresh.addEventListener(evt, () => followBottom = false);
     });
 
+    // Righe da caricare: il tetto e' 10000 anche lato server (run.sh, /log?n=).
+    // Con normalize=true riscrive il campo, altrimenti resta a schermo un
+    // valore piu' alto di quello che viene davvero chiesto.
+    const LINES_MIN = 50, LINES_MAX = 10000;
+    function linesValue(normalize) {
+      let n = parseInt(elLines.value, 10);
+      if (!isFinite(n)) n = 800;
+      n = Math.max(LINES_MIN, Math.min(LINES_MAX, n));
+      if (normalize && String(n) !== elLines.value) elLines.value = String(n);
+      return n;
+    }
+
+    // Solo su change (blur/invio): normalizzare su "input" romperebbe la
+    // digitazione, "1" di 10000 verrebbe subito riscritto a 50
+    elLines.addEventListener("change", () => linesValue(true));
+
     // Bottone "Vai in fondo": riattiva follow e scende
     btnBottom.addEventListener("click", () => {
       followBottom = true;
@@ -339,7 +355,7 @@ if (limitKw != null && limitKw > 0) {
     async function load() {
 
     if (window.currentMode !== "live") return;
-    const n = Math.max(50, Math.min(5000, parseInt(elLines.value || "400", 10)));
+    const n = linesValue(true);
     const url = `log?n=${n}&_=${Date.now()}`;
     const q = (elFilter.value || "").trim().toLowerCase();
 

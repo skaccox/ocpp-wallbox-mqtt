@@ -626,7 +626,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/log":
             qs = parse_qs(u.query)
             n = int(qs.get("n", ["400"])[0])
-            n = max(50, min(5000, n))
+            n = max(50, min(10000, n))
 
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")

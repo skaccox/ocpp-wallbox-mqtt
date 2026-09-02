@@ -1,4 +1,9 @@
 # Changelog
+## [1.0.6.6] - 2026-09-02
+- CHG il tetto delle righe del log live passa da 5000 a 10000 (input, client
+  e server: erano tre limiti separati, cambiarne uno non bastava)
+- FIX il campo "Righe:" accettava valori oltre il tetto senza dirlo: ora viene
+  riscritto col valore realmente richiesto
 ## [1.0.6.5] - 2026-08-26
 - FIX la riga di riepilogo delle sessioni nei grafici non stava nello spazio
   disponibile: rimossa la parola "Sessione" davanti al numero e ridotto di un
