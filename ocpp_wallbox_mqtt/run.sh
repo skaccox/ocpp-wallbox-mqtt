@@ -400,7 +400,51 @@ ${block}"
   printf '%s' "${cur_sig}" > "${stamp}"
 }
 
+ini_active_key () {
+  # vero solo se la chiave e' attiva, cioe' non commentata
+  grep -qE "^[[:space:]]*$1=" "${INI_FILE}"
+}
+
+ini_ensure_active () {
+  # WALLBOX1_SHARE e PRIORITY_WALLBOX sono lo store of record del server per
+  # quota e priorita': il valore che arriva su MQTT viene riscritto qui e
+  # riletto all'avvio. Commentate equivalgono ad assenti, quindi ogni riavvio
+  # perderebbe entrambe.
+  #
+  # ini_merge_defaults aggiunge tutto commentato, ed essendo ini_has_key vera
+  # anche sulla forma commentata non ci tornerebbe mai piu' sopra: da qui le
+  # riattiviamo. Il valore non viene toccato -- resta quello scritto sulla
+  # riga, cioe' il default del template -- quindi il comportamento non cambia.
+  # Si riattiva l'ULTIMA occorrenza perche' e' quella che il server legge.
+  local key="$1"
+
+  if ini_active_key "${key}"; then return 0; fi
+  if ! ini_has_key "${key}"; then return 0; fi
+
+  awk -v k="${key}" '
+    NR==FNR {
+      if ($0 ~ "^[[:space:]]*#[[:space:]]*" k "=") { last=FNR }
+      next
+    }
+    {
+      if (FNR==last) {
+        s=$0
+        sub(/^[[:space:]]*#[[:space:]]*/, "", s)
+        print s
+      }
+      else { print }
+    }
+  ' "${INI_FILE}" "${INI_FILE}" > "${INI_FILE}.tmp" && mv "${INI_FILE}.tmp" "${INI_FILE}"
+
+  bashio::log.info "${key} era commentata — riattivata ($(grep -E "^[[:space:]]*${key}=" "${INI_FILE}" | tail -1))."
+}
+
 ini_merge_defaults "${INI_TEMPLATE}"
+
+# Fuori dal merge: quello gira solo quando cambia il template, mentre una
+# chiave di store of record lasciata commentata va riattivata comunque.
+ini_ensure_active "WALLBOX1_SHARE"
+ini_ensure_active "PRIORITY_WALLBOX"
 
 set_kv () {
   local key="$1"

@@ -237,10 +237,16 @@ and appends any missing key **commented, with its default value**, in the
 global section. So the keys below are already in your `ocpp.ini`: find them,
 uncomment, set. Existing values are never touched.
 
+`WALLBOX1_SHARE` and `PRIORITY_WALLBOX` are the exception: the add-on keeps
+them **active**, and uncomments them if it finds them commented out. They are
+the server's store of record for the split and the priority — commented out is
+the same as absent, and a restart would forget both. Only the `#` is removed,
+never the value, so nothing changes in behaviour.
+
 | key | what it does | default |
 |---|---|---|
-| `WALLBOX1_SHARE` | share of available power for the first wallbox: a number `0`-`100`, or one of the symbolic quotas below written without the `SHARE_` prefix | `EQUAL_POWER` |
-| `PRIORITY_WALLBOX` | which wallbox keeps charging when there is not enough power for both (`1` or `2`) | `1` |
+| `WALLBOX1_SHARE` | share of available power for the first wallbox: a number `0`-`100`, and nothing else. Any other value is refused, with a warning in the log naming it, and read as `50` | `50` |
+| `PRIORITY_WALLBOX` | which wallbox keeps charging when there is not enough power for both: a position in ini order (`1`, `2`) or a wallbox name — its `WALLBOX_MQTT_NAME`, its path, or its section. The Home Assistant select writes the display name, so the two cannot drift apart | `1` |
 | `WAIT_SUSPEND` | delay before suspending a wallbox | `360s` |
 | `WAIT_RESUME` | delay before resuming one | `360s` |
 | `WAIT_PRIORITY` | how long a suspension in progress is protected from being inverted by a change of `PRIORITY_WALLBOX` | `360s` |
@@ -270,21 +276,18 @@ effect on the next page reload.
 
 ---
 
-The symbolic quotas are `SHARE_WB1_ONLY`, `SHARE_EQUAL_POWER`,
-`SHARE_EQUAL_PROGRESS`, `SHARE_WB2_ONLY`, also in `ocpp.ini`.
-`EQUAL_PROGRESS` is the quota that makes two cars of different battery size
-gain the same percentage per hour.
-
 For the `WAIT_*` timings a bare number up to 20 is read as loop ticks; add `s`
 for seconds. Reducing power is immediate — changing the *number* of active
 wallboxes is delayed, because household peaks are transient and closing a
 session has a cost.
 
 > ℹ️ Home Assistant decides the split and the priority; the server only
-> allocates power and knows nothing about cars or state of charge. The ini
-> values are the starting point — normally they are then overwritten over MQTT
-> on `ocpp/config/general/WALLBOX1_SHARE` and `.../PRIORITY_WALLBOX`, so an
-> automation can drive them without touching the file.
+> allocates power and knows nothing about cars or state of charge. An
+> automation drives both over MQTT on `ocpp/config/general/WALLBOX1_SHARE`
+> and `.../PRIORITY_WALLBOX` without touching the file: the server writes back
+> to `ocpp.ini` whatever arrives on those topics. The file stays the store of
+> record — at startup the retained MQTT values are published *from* it, not
+> the other way round.
 
 ---
 

@@ -1,4 +1,12 @@
 # Changelog
+## [1.0.6.7] - 2026-09-03
+- FIX WALLBOX1_SHARE e PRIORITY_WALLBOX venivano aggiunte commentate dal
+  merge col template, ma per il server sono lo store of record di quota e
+  priorita': commentate equivalgono ad assenti e ogni riavvio le perdeva.
+  Ora vengono riattivate (solo il "#", il valore non si tocca)
+- FIX DOCS.md documentava per WALLBOX1_SHARE le quote simboliche
+  (EQUAL_POWER, EQUAL_PROGRESS...) che il server rifiuta leggendole come 50,
+  e dava la direzione ini/MQTT invertita
 ## [1.0.6.6] - 2026-09-02
 - CHG il tetto delle righe del log live passa da 5000 a 10000 (input, client
   e server: erano tre limiti separati, cambiarne uno non bastava)
