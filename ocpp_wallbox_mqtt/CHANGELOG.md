@@ -1,4 +1,6 @@
 # Changelog
+## [1.7.11] - 2026-09-05
+- CHG "Increasing to" celeste invece dell'azzurro
 ## [1.7.10] - 2026-09-05
 - CHG nel pannello l'azione sta a sinistra e Close sempre a destra
 - CHG il pannello non parla piu' di riavvio: dice solo di premere UPDATE NOW

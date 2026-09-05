@@ -635,7 +635,7 @@ body.history-mode #status {
    sale, rosso scende; il verde resta alle CHG e il viola ai limiti e ai
    problemi, cosi' nessuna delle due si confonde con l'ambra di .scp (il
    limite dentro SetChargingProfile). */
-.inc       { color:#7dd3fc; }
+.inc       { color:#87ceeb; }   /* celeste */
 .dec       { color:#f87171; }
 
 /* stesso rosso di .dec, ma questa e' una soglia superata: il grassetto la
