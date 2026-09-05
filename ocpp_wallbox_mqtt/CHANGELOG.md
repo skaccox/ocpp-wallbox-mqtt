@@ -1,4 +1,6 @@
 # Changelog
+## [1.7.4] - 2026-09-05
+- FIX ocpp_verbose si fermava a 15 nello schema, ma il server arriva a 22
 ## [1.7.3] - 2026-09-05
 - FIX dopo l'aggiornamento la pagina ripartiva da default_view: chi stava in
   LIVE con default_view=graph si ritrovava nei grafici. Ora torna alla vista

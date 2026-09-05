@@ -57,7 +57,7 @@ Log verbosity of the OCPP server.
 
 Range:
 - `0` = minimal logs  
-- `15` = full debug
+- `22` = full debug
 
 ---
 
