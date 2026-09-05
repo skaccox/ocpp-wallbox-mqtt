@@ -294,20 +294,74 @@ session has a cost.
 ### 🔄 Auto update
 
 #### `auto_update`
-Automatically pull the latest OCPP MQTT Perl Server code from Git at every startup.
+Keep the OCPP MQTT Perl Server in sync with `code_repo` / `code_ref` on its own.
 
-When enabled, the add-on will check for updates and perform a git pull each time it starts.
+When enabled the add-on updates in two moments:
+
+- **at every startup**, with a `git pull --ff-only` before the Perl server is
+  launched;
+- **on the hourly check**, if new commits appeared while the add-on was
+  running. Without this, an add-on that is never restarted would never update.
+
+The hourly update reuses the same path as the startup one — it marks the
+update, restarts the add-on, and the pull happens at startup — so the code is
+never swapped underneath the running Perl process. It stays deliberately
+conservative:
+
+- it waits while a **charging session is running** (`CHG*` with more than 50 W
+  in the last 3 minutes): a restart would drop the wallbox connection. The
+  update is applied at one of the next hourly checks.
+- it never forces anything. If the fast-forward is refused (diverged branch,
+  local changes to tracked files) the current version stays, the reason is
+  shown in the UPDATE panel, and the same commit is not retried — otherwise a
+  stable failure would restart the add-on every hour. A *new* commit upstream
+  is tried again.
+- if the check itself cannot reach the repository, nothing is attempted.
+
+With `auto_update` off, nothing is ever updated on its own: the UPDATE button
+is the only way in, and it is always available.
 
 ⚠️ This updates the server engine, not the Home Assistant add-on itself.
 
 ---
 
-### 🔄 Single update now
+### 🔄 Version indicator and update
 
-#### `single_update_now`
-Perform a one-time update of the OCPP MQTT Perl Server at the next add-on startup.
+There is no option for a one-shot update: the web UI does it.
 
-When enabled, the add-on will execute a git pull once and then automatically reset this option to false.
+The commit the Perl server is running is always shown in the header, right
+after the clock — a short git hash such as `c986b8e`. Click it and the panel
+tells you what it is, the subject and date of that commit, the ref being
+followed, and offers **Check now**.
+
+The add-on compares that commit with the tip of `code_ref` on `code_repo` —
+there is no version number to compare, and the repository is an option, so git
+is the only reliable reference. The check runs a few seconds after startup and
+once an hour after that, whatever `auto_update` says.
+
+When the configured ref is ahead, the indicator turns **amber with an up
+arrow**. The panel then shows how many new commits there are and the subject
+of the last one; confirming restarts the add-on, and the update itself is done
+at startup by the same code path as `auto_update` — never underneath the
+running Perl process.
+
+- If the fast-forward is refused (diverged branch, local changes to tracked
+  files) the working tree is realigned to `origin/<ref>` anyway, because the
+  update was requested explicitly — this is the one difference from the
+  automatic update, which in the same situation gives up and reports why.
+  Untracked files — `ocpp.ini`, `ocpp.log`, `charge.log`, `data/` — are never
+  touched and `git clean` is never run.
+- Local commits of your own on that branch are reported in the panel before
+  you confirm: updating leaves them behind.
+- If `code_ref` is a tag or a commit SHA there is no tip to follow, so no
+  update is ever offered — the panel says the server is pinned.
+- The outcome of the last attempt is shown in the panel, so a refused update
+  no longer hides in the add-on log.
+- A charging session in progress is reported before you confirm: the restart
+  drops the wallbox connection.
+
+On a phone only the arrow is shown, and only when there is something to
+update: the top bar has no room for the hash.
 
 ⚠️ This updates the server engine, not the Home Assistant add-on itself.
 

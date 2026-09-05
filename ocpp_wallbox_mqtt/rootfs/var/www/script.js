@@ -15,7 +15,6 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     const elLines = document.getElementById("lines");
     const elRefresh = document.getElementById("refresh");
     const elStatus = document.getElementById("status");
-    const btn = document.getElementById("btn");
     const btnBottom = document.getElementById("btnBottom");
     const elFilter = document.getElementById("filter");
     const elKw = document.getElementById("kw");
@@ -605,13 +604,9 @@ window.stopLive = function stopLive() {
 };
 
 
-    if (btn)  btn.addEventListener("click", async () => {
-      await load();
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth"
-      });
-    });
+    // con Refresh su OFF era il pulsante "Update" a rileggere il log: ora lo
+    // fa la conferma del filtro, altrimenti non resterebbe alcun modo
+    elFilter.addEventListener("change", () => { load(); });
 
 
     elRefresh.addEventListener("change",  window.startLive);
@@ -629,3 +624,238 @@ window.stopLive = function stopLive() {
 
 
 
+
+/* ===== Versione del server perl e aggiornamento =====
+   Il repo del server e' configurabile (code_repo/code_ref) e non pubblica un
+   numero di versione: il confronto lo fa il web server con git, fra il commit
+   in uso e la punta del ref configurato. Il commit sta sempre accanto all'ora;
+   la freccia compare solo quando ci sono commit nuovi, e il pannello spiega
+   cosa cambierebbe prima di riavviare. */
+(function () {
+  const wrap  = document.getElementById("verWrap");
+  const btn   = document.getElementById("btnVersion");
+  const text  = document.getElementById("verText");
+  const panel = document.getElementById("updatePanel");
+  if (!wrap || !btn || !text || !panel) return;
+
+  const RECHECK_MS = 15 * 60 * 1000;  // ricontrollo dal browser
+  const RETRY_MS   = 8 * 1000;        // il server non ha ancora controllato
+  const GIVEUP_MS  = 4 * 60 * 1000;   // attesa massima del riavvio
+
+  let info = null;
+  let busy = false;
+
+  const esc = s => String(s == null ? "" : s).replace(/[<>&"]/g,
+    c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+
+  function shortDate(iso) {
+    const d = iso ? new Date(iso) : null;
+    return (d && !isNaN(d)) ? d.toLocaleDateString() : "";
+  }
+
+  async function getVersion(refresh) {
+    const q = refresh ? "?refresh=1&_=" : "?_=";
+    const r = await fetch("version" + q + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  }
+
+  const isOpen = () => panel.style.display !== "none";
+
+  function closePanel() {
+    panel.style.display = "none";
+  }
+
+  function showPanel(html) {
+    panel.innerHTML = html;
+    panel.style.display = "block";
+  }
+
+  function paint() {
+    const d = info || {};
+    const short = d.local_short || "";
+
+    text.textContent = short;
+    wrap.style.display = short ? "inline-flex" : "none";
+    wrap.classList.toggle("has-update", !!d.update_available);
+    btn.title = d.update_available
+      ? d.behind + " new commit(s) on " + d.ref + " — click to update"
+      : "Server " + short;
+  }
+
+  function renderPanel() {
+    const d = info || {};
+
+    // sempre validi, aggiornamento o no
+    let extra = "";
+    if (d.last_update && d.last_update.status === "error") {
+      extra += `<div class="msg err">Last attempt (${esc(d.last_update.when)}):
+        ${esc(d.last_update.message)}</div>`;
+    }
+    if (d.error) {
+      extra += `<div class="msg err">${esc(d.error)}</div>`;
+    }
+
+    if (!d.update_available) {
+      if (d.ahead > 0) {
+        extra += `<div class="msg">${d.ahead} local commit(s) not on
+          <code>${esc(d.ref)}</code>.</div>`;
+      }
+      if (d.pinned) {
+        extra += `<div class="msg"><code>${esc(d.ref)}</code> is a tag or a
+          commit: there is no branch tip to follow, so no update is offered.</div>`;
+      }
+      showPanel(`
+        <h4>${d.pinned ? "Server pinned" : "Server up to date"}</h4>
+        <div class="kv"><span>Running</span><code>${esc(d.local_short)}</code></div>
+        <div class="kv"><span>Ref</span><code>${esc(d.ref)}</code></div>
+        ${d.local_subject ? `<div class="msg">“${esc(d.local_subject)}”
+          ${shortDate(d.local_date)}</div>` : ""}
+        ${extra}
+        <div class="actions">
+          <button data-act="check">Check now</button>
+          <button data-act="close">Close</button>
+        </div>`);
+      return;
+    }
+
+    if (d.charging) {
+      extra += `<div class="msg warn">A charging session is running: the restart
+        drops the wallbox connection.</div>`;
+    }
+    if (d.ahead > 0) {
+      extra += `<div class="msg warn">${d.ahead} local commit(s) not on
+        <code>${esc(d.ref)}</code>: they would be left behind.</div>`;
+    }
+    if (d.dirty) {
+      extra += `<div class="msg warn">Local changes to tracked files would be
+        overwritten. <code>ocpp.ini</code>, logs and <code>data/</code> are
+        never touched.</div>`;
+    }
+    if (d.auto_update) {
+      extra += `<div class="msg">Auto update is on: this happens by itself
+        within the hour, once no session is running.</div>`;
+    }
+
+    showPanel(`
+      <h4>Server update available</h4>
+      <div class="kv"><span>Running</span><code>${esc(d.local_short)}</code></div>
+      <div class="kv"><span>Latest</span><code>${esc(d.remote_short)}</code></div>
+      <div class="kv"><span>New commits</span><strong>${d.behind || 0}</strong></div>
+      ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
+        ${shortDate(d.remote_date)}</div>` : ""}
+      ${extra}
+      <div class="msg">The add-on restarts to apply it (a few seconds).</div>
+      <div class="actions">
+        <button data-act="close">Cancel</button>
+        <button class="go" data-act="go">Update now</button>
+      </div>`);
+  }
+
+  function renderDone(cls, html) {
+    busy = false;
+    wrap.classList.remove("busy");
+    showPanel(`<h4>Server update</h4><div class="msg ${cls}">${html}</div>
+      <div class="actions"><button data-act="close">Close</button></div>`);
+  }
+
+  async function checkNow() {
+    showPanel(`<h4>Checking…</h4><div class="msg">Asking
+      <code>${esc((info && info.ref) || "origin")}</code> for new commits.</div>`);
+    try {
+      info = await getVersion(true);
+      paint();
+      renderPanel();
+    } catch (e) {
+      renderDone("err", "Check failed: " + esc(e.message || e));
+    }
+  }
+
+  async function startUpdate() {
+    busy = true;
+    wrap.classList.add("busy");
+    showPanel(`<h4>Updating…</h4><div class="msg">The add-on is restarting.
+      This page reloads by itself as soon as the server is back.</div>`);
+
+    try {
+      const r = await fetch("update", { method: "POST", cache: "no-store" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) {
+        renderDone("err", "Update not started: " + esc(d.error || ("HTTP " + r.status)));
+        return;
+      }
+    } catch (e) {
+      // il riavvio puo' arrivare prima della risposta: non e' un errore
+    }
+
+    waitForRestart(Date.now(), info ? info.local : "");
+  }
+
+  function waitForRestart(t0, wasLocal) {
+    setTimeout(async () => {
+      if (Date.now() - t0 > GIVEUP_MS) {
+        renderDone("err", "The add-on did not come back. Check the add-on log.");
+        return;
+      }
+      try {
+        const d = await getVersion(false);
+
+        if (d.local && wasLocal && d.local !== wasLocal) {
+          location.reload();
+          return;
+        }
+        if (d.restart_error) {
+          renderDone("err", "Restart request refused: " + esc(d.restart_error) +
+            ". The update will be applied at the next add-on restart.");
+          return;
+        }
+        // stesso commit e nessun update in sospeso: run.sh ha gia' concluso
+        if (!d.pending && Date.now() - t0 > 25000) {
+          const st = d.last_update || {};
+          renderDone(st.status === "error" ? "err" : "warn",
+            st.message ? esc(st.message) : "Nothing was updated.");
+          return;
+        }
+      } catch (e) {
+        // server giu' durante il riavvio: normale
+      }
+      waitForRestart(t0, wasLocal);
+    }, 3000);
+  }
+
+  async function check() {
+    let next = RECHECK_MS;
+    try {
+      const d = await getVersion(false);
+      if (!busy) {
+        info = d;
+        paint();
+        if (isOpen()) renderPanel();
+      }
+      // il server fa il primo controllo pochi secondi dopo l'avvio
+      if (!d.checked) next = RETRY_MS;
+    } catch (e) {
+      next = RETRY_MS;
+    }
+    setTimeout(check, next);
+  }
+
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (busy) return;
+    if (isOpen()) { closePanel(); return; }
+    renderPanel();
+  });
+
+  panel.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const act = ev.target.closest("button")?.dataset.act;
+    if (act === "close") closePanel();
+    if (act === "check") checkNow();
+    if (act === "go") startUpdate();
+  });
+
+  document.addEventListener("click", () => { if (!busy) closePanel(); });
+
+  check();
+})();

@@ -663,3 +663,118 @@ body.history-mode #status {
   font-weight: 400;
   margin-left: 2px;
 }
+
+/* ===== Versione del server perl (accanto all'ora) + pannello update ===== */
+
+.verWrap{
+  position:relative;
+  display:inline-flex;
+}
+
+.verBtn{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  padding:1px 7px;
+  border-radius:999px;
+  font-size:11px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  line-height:1.6;
+  cursor:pointer;
+  color:var(--muted);
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+}
+
+.verBtn:hover{ color:var(--text); }
+
+/* niente freccia finche' non c'e' niente da scaricare */
+.verArrow{ display:none; }
+
+.verWrap.has-update .verBtn{
+  color:#f59e0b;
+  border-color:rgba(245,158,11,.5);
+  background:rgba(245,158,11,.12);
+  font-weight:700;
+  animation:updPulse 2.4s ease-in-out infinite;
+}
+
+.verWrap.has-update .verArrow{ display:inline; }
+
+.verWrap.busy .verBtn{
+  animation:none;
+  opacity:.6;
+  cursor:default;
+}
+
+@keyframes updPulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,.5); }
+  50%    { box-shadow:0 0 0 4px rgba(245,158,11,0); }
+}
+
+.updatePanel{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  z-index:120;
+  width:270px;
+  max-width:calc(100vw - 24px);
+  padding:12px 14px;
+  border-radius:12px;
+  text-align:left;
+  font-size:12px;
+  color:var(--text);
+  background:var(--card);
+  border:1px solid var(--border);
+  box-shadow:0 14px 30px rgba(0,0,0,.55);
+  cursor:default;
+}
+
+.updatePanel h4{
+  margin:0 0 8px;
+  font-size:13px;
+}
+
+.updatePanel .kv{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin:3px 0;
+}
+
+.updatePanel .kv span{ color:var(--muted); }
+.updatePanel code{ color:#22c55e; }
+.updatePanel .msg{ margin-top:8px; color:var(--muted); line-height:1.4; }
+.updatePanel .msg.warn{ color:#fbbf24; }
+.updatePanel .msg.err{ color:#fb7185; }
+
+.updatePanel .actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
+.updatePanel .actions button{
+  padding:5px 12px;
+  border-radius:8px;
+  font-size:12px;
+  cursor:pointer;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted);
+}
+
+.updatePanel .actions button.go{
+  background:#f59e0b;
+  border-color:#f59e0b;
+  color:#000;
+  font-weight:700;
+}
+
+@media (max-width:600px){
+  /* in cima c'e' posto per un'icona sola: il commit resta nel pannello */
+  .verText{ display:none; }
+  .verWrap:not(.has-update){ display:none !important; }
+  .verBtn{ padding:1px 5px; }
+}

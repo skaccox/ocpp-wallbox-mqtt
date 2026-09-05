@@ -44,7 +44,7 @@ DATA_DIR="$(bashio::config 'data_dir')"
 DEFAULT_VIEW="$(bashio::config 'default_view')"
 
 # ---- Sorgente del codice (repo/branch configurabili dalle opzioni) ----
-DEFAULT_CODE_REPO="https://gitlab.com/lucabon/ocpp-mqtt-perl-server.git"
+DEFAULT_CODE_REPO="https://gitlab.com/skaccox/ocpp-mqtt-perl-server.git"
 DEFAULT_CODE_REF="main"
 
 CODE_REPO="$(bashio::config 'code_repo')"
@@ -57,9 +57,28 @@ if [ -z "${CODE_REF}" ] || [ "${CODE_REF}" = "null" ]; then
   CODE_REF="${DEFAULT_CODE_REF}"
 fi
 AUTO_UPDATE="$(bashio::config 'auto_update')"
-FORCE_UPDATE_ONCE=false
-if bashio::config.true 'single_update_now'; then
-  FORCE_UPDATE_ONCE=true
+
+# Aggiornamento chiesto dalla UI: il web server scrive il flag e fa riavviare
+# l'add-on, cosi' il pull avviene qui - prima che perl riparta - e non sotto ai
+# piedi del processo in esecuzione. La prima riga del flag dice chi l'ha
+# chiesto: "manual" (pulsante UPDATE) o "auto" (controllo orario con
+# auto_update attivo), e da li' dipende se l'allineamento puo' essere forzato.
+UPDATE_FLAG="${APP_DIR}/.addon-update-now"
+UPDATE_STATE="${APP_DIR}/.addon-update-last"
+
+UPDATE_REQUEST=""
+if [ -f "${UPDATE_FLAG}" ]; then
+  UPDATE_REQUEST="$(head -n 1 "${UPDATE_FLAG}" 2>/dev/null | tr -d '[:space:]')"
+  case "${UPDATE_REQUEST}" in
+    manual|auto) ;;
+    # flag illeggibile: si aggiorna comunque, ma senza forzare nulla
+    *) UPDATE_REQUEST="auto" ;;
+  esac
+fi
+
+UPDATE_REQUESTED=false
+if [ -n "${UPDATE_REQUEST}" ]; then
+  UPDATE_REQUESTED=true
 fi
 
 ADD_WALLBOX_POWER_TO_METER=0
@@ -89,13 +108,44 @@ have_net() {
   ping -c 1 -W 1 1.1.1.1 >/dev/null 2>&1
 }
 
+update_state_write() {
+  # Esito dell'ultimo aggiornamento chiesto dalla UI: senza, un pull rifiutato
+  # resterebbe solo nel log dell'add-on e il pulsante UPDATE ricomparirebbe
+  # senza spiegazione. L'ultimo campo e' il commit che si stava inseguendo: il
+  # controllo orario ci riprova da solo solo quando quello cambia, altrimenti
+  # un errore stabile (branch divergente) farebbe riavviare l'add-on in loop.
+  local target
+  target="$(git -C "${APP_DIR}" rev-parse --verify --quiet "refs/remotes/origin/${CODE_REF}" 2>/dev/null || true)"
+  printf '%s\t%s\t%s\t%s\n' "$1" "$(date '+%Y-%m-%d %H:%M:%S')" "$2" "${target}" \
+    > "${UPDATE_STATE}" 2>/dev/null || true
+}
+
 git_try_update() {
-  # best-effort: non deve mai far morire lo startup
+  # best-effort: non deve mai far morire lo startup.
+  # $1 = chi ha chiesto l'aggiornamento: "" (auto_update all'avvio), "auto"
+  # (controllo orario della UI) o "manual" (pulsante UPDATE). Solo "manual" e'
+  # una richiesta esplicita dell'utente, quindi solo li', se il fast-forward
+  # non passa, ci si allinea comunque a origin/<ref>: negli altri due casi la
+  # versione attuale resta dov'e'. Come in git_switch_ref non si usa mai
+  # "git clean": ocpp.ini, i log e data/ non sono tracciati.
+  local req="${1:-}"
+
+  local force=false
+  if [ "${req}" = "manual" ]; then force=true; fi
+
+  # l'esito serve alla UI solo se l'aggiornamento l'ha chiesto lei
+  local report=false
+  if [ -n "${req}" ]; then report=true; fi
+
   set +e
+
   git -C "${APP_DIR}" fetch --prune origin "${CODE_REF}" >/dev/null 2>&1
   local r1=$?
   if [ $r1 -ne 0 ]; then
     bashio::log.warning "Git fetch fallito (rete non pronta?). Mantengo la versione attuale."
+    if [ "${report}" = "true" ]; then
+      update_state_write "error" "git fetch fallito (repo non raggiungibile?)"
+    fi
     set -e
     return 0
   fi
@@ -103,12 +153,32 @@ git_try_update() {
   git -C "${APP_DIR}" pull --ff-only origin "${CODE_REF}" >/dev/null 2>&1
   local r2=$?
   if [ $r2 -ne 0 ]; then
-    bashio::log.warning "Git pull non eseguito (branch divergente o modifiche locali). Mantengo la versione attuale."
+    if [ "${force}" = "true" ] && git -C "${APP_DIR}" rev-parse --verify --quiet "refs/remotes/origin/${CODE_REF}" >/dev/null 2>&1; then
+      bashio::log.warning "Fast-forward non possibile: allineo a origin/${CODE_REF} (richiesto dal pulsante UPDATE)."
+      git -C "${APP_DIR}" checkout -f -B "${CODE_REF}" "origin/${CODE_REF}" >/dev/null 2>&1
+      local r3=$?
+      if [ $r3 -eq 0 ]; then
+        git -C "${APP_DIR}" branch --set-upstream-to="origin/${CODE_REF}" "${CODE_REF}" >/dev/null 2>&1
+        update_state_write "ok" "allineato a origin/${CODE_REF}"
+        set -e
+        bashio::log.info "Update git completato."
+        return 0
+      fi
+      update_state_write "error" "checkout di origin/${CODE_REF} fallito"
+    else
+      bashio::log.warning "Git pull non eseguito (branch divergente o modifiche locali). Mantengo la versione attuale."
+      if [ "${report}" = "true" ]; then
+        update_state_write "error" "pull rifiutato: branch divergente o modifiche locali ai file tracciati"
+      fi
+    fi
     set -e
     return 0
   fi
 
   set -e
+  if [ "${report}" = "true" ]; then
+    update_state_write "ok" "aggiornato"
+  fi
   bashio::log.info "Update git completato."
   return 0
 }
@@ -242,25 +312,34 @@ else
   if [ "${REPO_CHANGED}" = "true" ] || [ "${REF_CHANGED}" = "true" ]; then
     # Cambio esplicito nelle opzioni: si applica anche con auto_update disattivo.
     if wait_net; then
-      git_switch_ref || bashio::log.warning "Cambio repo/ref non applicato: avvio la versione attuale."
+      if git_switch_ref; then
+        # il checkout porta gia' alla punta del ref: un update chiesto dal
+        # pulsante e' servito
+        rm -f "${UPDATE_FLAG}"
+      else
+        bashio::log.warning "Cambio repo/ref non applicato: avvio la versione attuale."
+      fi
     else
       bashio::log.warning "Rete non disponibile: cambio repo/ref rinviato al prossimo avvio."
     fi
-  elif bashio::config.true 'auto_update' || [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
+  elif bashio::config.true 'auto_update' || [ "${UPDATE_REQUESTED}" = "true" ]; then
     if wait_net; then
       bashio::log.info "Aggiornamento (git pull)..."
-      git_try_update
+      git_try_update "${UPDATE_REQUEST}"
+      # flag consumato: altrimenti l'update si ripeterebbe a ogni riavvio
+      if [ "${UPDATE_REQUESTED}" = "true" ]; then
+        bashio::log.info "Reset flag update (${UPDATE_REQUEST})"
+        rm -f "${UPDATE_FLAG}"
+      fi
     else
       bashio::log.warning "Rete ancora non disponibile: salto auto_update e avvio la versione attuale."
+      # flag NON consumato: senza rete l'update chiesto non e' stato fatto
+      if [ "${UPDATE_REQUESTED}" = "true" ]; then
+        update_state_write "error" "rete non disponibile all'avvio: riprovo al prossimo riavvio"
+      fi
     fi
   else
     bashio::log.info "Auto update disabled, skipping git update"
-  fi
-
-  # se era un update one-shot, resettalo nelle option
-  if [ "${FORCE_UPDATE_ONCE}" = "true" ]; then
-    bashio::log.info "Reset update_now flag"
-    bashio::addon.option single_update_now false
   fi
 fi
 
@@ -573,10 +652,19 @@ export OCPP_DATA_DIR="${APP_DIR}/${DATA_DIR:-data}"
 export OCPP_LOG="${APP_DIR}/ocpp.log"
 export OCPP_DEFAULT_VIEW="${DEFAULT_VIEW:-live}"
 export OCPP_INI="${INI_FILE}"
+export OCPP_APP_DIR="${APP_DIR}"
+export OCPP_CODE_REPO="${CODE_REPO}"
+export OCPP_CODE_REF="${CODE_REF}"
+export OCPP_AUTO_UPDATE="$(bashio::config.true 'auto_update' && echo true || echo false)"
 
 python3 - <<'PY' &
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import re
+import subprocess
+import threading
+import time
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 import json
@@ -585,6 +673,323 @@ INDEX        = "/var/www/index.html"
 DATA_DIR     = os.environ["OCPP_DATA_DIR"]
 DEFAULT_VIEW = os.environ.get("OCPP_DEFAULT_VIEW", "live")
 INI          = os.environ.get("OCPP_INI", "")
+
+APP_DIR      = os.environ.get("OCPP_APP_DIR", "")
+CODE_REPO    = os.environ.get("OCPP_CODE_REPO", "")
+CODE_REF     = os.environ.get("OCPP_CODE_REF", "main")
+UPDATE_FLAG  = os.path.join(APP_DIR, ".addon-update-now")  if APP_DIR else ""
+UPDATE_STATE = os.path.join(APP_DIR, ".addon-update-last") if APP_DIR else ""
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+AUTO_UPDATE  = os.environ.get("OCPP_AUTO_UPDATE", "false") == "true"
+
+# Ogni quanto ricontrollare il repo del server perl, e ogni quanto riprovare
+# se il controllo non e' riuscito (tipicamente rete non pronta all'avvio).
+VERSION_TTL   = 3600
+VERSION_RETRY = 120
+
+# Dopo un aggiornamento automatico fallito si riprova solo se nel frattempo e'
+# cambiato il commit da inseguire, o comunque non prima di questo tempo.
+AUTO_RETRY_COOLDOWN = 6 * 3600
+
+_git_lock      = threading.Lock()
+_cache_lock    = threading.Lock()
+_version_data  = None
+_version_when  = 0
+_restart_error = ""
+_auto_tried    = False
+
+
+def git(*args, timeout=60):
+    try:
+        p = subprocess.run(
+            ["git", "-C", APP_DIR, *args],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        return p.returncode, p.stdout.strip(), p.stderr.strip()
+    except Exception as e:  # git assente, timeout, ...
+        return 1, "", str(e)
+
+
+def git_out(*args, **kw):
+    rc, out, _ = git(*args, **kw)
+    return out if rc == 0 else ""
+
+
+def commit_info(rev):
+    """(sha, sha breve, data ISO, oggetto) del commit, o campi vuoti."""
+    out = git_out("log", "-1", "--format=%H%x1f%h%x1f%cI%x1f%s", rev)
+    f = out.split("\x1f") if out else []
+    if len(f) != 4:
+        return {"sha": "", "short": "", "date": "", "subject": ""}
+    return {"sha": f[0], "short": f[1], "date": f[2], "subject": f[3]}
+
+
+def read_update_state():
+    """Esito dell'ultimo aggiornamento chiesto dalla UI, scritto da run.sh."""
+    if not UPDATE_STATE:
+        return None
+    try:
+        with open(UPDATE_STATE, "r", encoding="utf-8", errors="replace") as fh:
+            line = fh.readline().strip()
+    except OSError:
+        return None
+    if not line:
+        return None
+    f = line.split("\t")
+    return {
+        "status":  f[0],
+        "when":    f[1] if len(f) > 1 else "",
+        "message": f[2] if len(f) > 2 else "",
+        "target":  f[3] if len(f) > 3 else "",
+    }
+
+
+CHG_RE = re.compile(r"\bCHG\*")
+PWR_RE = re.compile(r"\bP\s*=\s*([0-9]+(?:[.,][0-9]+)?)")
+TS_RE  = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})")
+
+
+def charging_now(max_age=180, min_w=50):
+    """Ricarica in corso, secondo le ultime righe del log.
+
+    Stessa regola della vista live (CHG* con P>50): un riavvio in mezzo a una
+    sessione fa cadere la connessione della wallbox, quindi l'aggiornamento
+    automatico aspetta che sia finita. Nel dubbio si risponde False: bloccare
+    per sempre gli aggiornamenti sarebbe peggio.
+    """
+    try:
+        with open(LOG, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - 200000))
+            lines = fh.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return False
+
+    for line in reversed(lines[-4000:]):
+        if not CHG_RE.search(line):
+            continue
+        pwr = PWR_RE.search(line)
+        ts = TS_RE.match(line)
+        if not pwr or not ts:
+            continue
+        try:
+            when = time.mktime(tuple(int(x) for x in ts.groups()) + (0, 0, -1))
+        except (ValueError, OverflowError):
+            return False
+        if time.time() - when > max_age:
+            return False  # ultima riga di carica troppo vecchia
+        try:
+            return float(pwr.group(1).replace(",", ".")) > min_w
+        except ValueError:
+            return False
+    return False
+
+
+def version_info(fetch=True):
+    """Commit in uso vs punta del ref configurato.
+
+    Il repo del server e' un'opzione (code_repo/code_ref) e non pubblica un
+    numero di versione, quindi l'unico confronto affidabile e' fra HEAD e la
+    punta del ref su origin: funziona anche su un fork o su un branch proprio.
+    """
+    info = {
+        "repo": CODE_REPO,
+        "ref": CODE_REF,
+        "local": "", "local_short": "", "local_date": "", "local_subject": "",
+        "remote": "", "remote_short": "", "remote_date": "", "remote_subject": "",
+        "behind": 0, "ahead": 0,
+        "update_available": False,
+        "pinned": False,
+        "dirty": False,
+        "pending": bool(UPDATE_FLAG) and os.path.isfile(UPDATE_FLAG),
+        "last_update": read_update_state(),
+        "restart_error": _restart_error,
+        "auto_update": AUTO_UPDATE,
+        "charging": charging_now(),
+        "error": "",
+    }
+
+    if not APP_DIR or not os.path.isdir(os.path.join(APP_DIR, ".git")):
+        info["error"] = "repository git non trovato"
+        return info
+
+    with _git_lock:
+        head = commit_info("HEAD")
+        info["local"]         = head["sha"]
+        info["local_short"]   = head["short"]
+        info["local_date"]    = head["date"]
+        info["local_subject"] = head["subject"]
+
+        if fetch:
+            rc, _, err = git("fetch", "--prune", "--tags", "origin", timeout=60)
+            if rc != 0:
+                info["error"] = (err.splitlines() or ["git fetch fallito"])[-1]
+
+        # branch remoto, altrimenti tag: un ref pinnato a uno SHA non ha una
+        # punta da inseguire, quindi non si offre nessun aggiornamento
+        target = ""
+        if git_out("rev-parse", "--verify", "--quiet",
+                   "refs/remotes/origin/%s" % CODE_REF):
+            target = "refs/remotes/origin/%s" % CODE_REF
+        elif git_out("rev-parse", "--verify", "--quiet",
+                     "refs/tags/%s" % CODE_REF):
+            target = "refs/tags/%s^{commit}" % CODE_REF
+        else:
+            info["pinned"] = True
+
+        if target:
+            rem = commit_info(target)
+            info["remote"]         = rem["sha"]
+            info["remote_short"]   = rem["short"]
+            info["remote_date"]    = rem["date"]
+            info["remote_subject"] = rem["subject"]
+
+            for key, rng in (("behind", "HEAD..%s" % target),
+                             ("ahead",  "%s..HEAD" % target)):
+                n = git_out("rev-list", "--count", rng)
+                info[key] = int(n) if n.isdigit() else 0
+
+            info["update_available"] = info["behind"] > 0
+
+        info["dirty"] = bool(git_out("status", "--porcelain", "--untracked-files=no"))
+
+    return info
+
+
+def version_cached(refresh=False):
+    global _version_data, _version_when
+    with _cache_lock:
+        data, when = _version_data, _version_when
+
+    if refresh or data is None:
+        # Alla prima richiesta, prima che il worker abbia fatto il suo giro, si
+        # risponde senza fetch: istantaneo e comunque significativo (se doveva
+        # aggiornare, run.sh ha gia' fatto fetch all'avvio).
+        data = version_info(fetch=refresh)
+        when = time.time() if refresh else 0
+        with _cache_lock:
+            _version_data, _version_when = data, when
+    else:
+        # i campi volatili non aspettano il prossimo giro del worker
+        data = dict(data)
+        data["pending"] = bool(UPDATE_FLAG) and os.path.isfile(UPDATE_FLAG)
+        data["last_update"] = read_update_state()
+        data["restart_error"] = _restart_error
+        data["charging"] = charging_now()
+
+    out = dict(data)
+    out["checked"] = int(when)
+    return out
+
+
+def maybe_auto_update(info):
+    """Con auto_update attivo, il controllo orario applica da solo l'update.
+
+    Senza, auto_update aggiorna solo all'avvio dell'add-on: chi non riavvia mai
+    non aggiorna mai. Le condizioni servono a non trasformarlo in un ciclo di
+    riavvii, e a non tagliare una ricarica in corso.
+    """
+    global _auto_tried
+
+    if not AUTO_UPDATE or _auto_tried:
+        return
+    if not info.get("update_available") or info.get("pending"):
+        return
+    if info.get("error"):
+        return  # fetch fallito: non c'e' niente di affidabile da inseguire
+    if info.get("charging"):
+        return  # si riprova al giro dopo, a sessione finita
+
+    st = info.get("last_update") or {}
+    if st.get("status") == "error":
+        if st.get("target"):
+            # gia' fallito inseguendo questo stesso commit: riprovarci non
+            # cambierebbe l'esito, riavvierebbe soltanto. Con un commit nuovo
+            # invece un tentativo ha senso.
+            if st["target"] == info.get("remote"):
+                return
+        else:
+            # errore senza un commit di riferimento (fetch fallito): si
+            # riprova a tempo
+            try:
+                if time.time() - os.path.getmtime(UPDATE_STATE) < AUTO_RETRY_COOLDOWN:
+                    return
+            except OSError:
+                pass
+
+    _auto_tried = True
+    request_update("auto")
+
+
+def version_worker():
+    """Controllo periodico, sempre attivo anche con auto_update disattivo.
+
+    Il primo giro e' quasi subito: e' quello che fa comparire la freccia sulla
+    versione in cima, e aspettarlo mezzo minuto si nota.
+    """
+    global _version_data, _version_when
+    time.sleep(3)  # lasciar partire perl e la rete
+    while True:
+        wait = VERSION_TTL
+        try:
+            data = version_info(fetch=True)
+            with _cache_lock:
+                _version_data, _version_when = data, time.time()
+            maybe_auto_update(data)
+            if data.get("error"):
+                # all'avvio la rete puo' non essere ancora pronta: riprovare
+                # fra un'ora vorrebbe dire un'ora senza sapere se c'e' un update
+                wait = VERSION_RETRY
+        except Exception:
+            wait = VERSION_RETRY
+        time.sleep(wait)
+
+
+def supervisor_restart():
+    """Riavvio dell'add-on: il pull vero lo fa run.sh alla ripartenza."""
+    global _restart_error
+    if not SUPERVISOR_TOKEN:
+        _restart_error = "SUPERVISOR_TOKEN non disponibile"
+        return
+    last = ""
+    for host in ("supervisor", "172.30.32.2"):
+        req = urllib.request.Request(
+            "http://%s/addons/self/restart" % host,
+            data=b"", method="POST",
+            headers={"Authorization": "Bearer " + SUPERVISOR_TOKEN},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                r.read()
+            return
+        except Exception as e:
+            last = str(e)
+    _restart_error = last or "riavvio non riuscito"
+
+
+def request_update(origin="manual"):
+    """Marca l'aggiornamento e chiede il riavvio dell'add-on.
+
+    Il git pull non si fa da qui: cambiare i file sotto ai piedi del perl in
+    esecuzione non ha senso. Si scrive il flag e aggiorna run.sh alla
+    ripartenza, con lo stesso percorso gia' usato da auto_update. L'origine
+    finisce nel flag perche' solo la richiesta esplicita dell'utente ("manual")
+    autorizza run.sh a forzare l'allineamento a origin/<ref>.
+    """
+    global _restart_error
+    if not UPDATE_FLAG:
+        return False, "app dir non configurata"
+    try:
+        with open(UPDATE_FLAG, "w", encoding="utf-8") as fh:
+            fh.write("%s\n%d\n" % (origin, int(time.time())))
+    except OSError as e:
+        return False, str(e)
+
+    _restart_error = ""
+    # la risposta va spedita prima: il riavvio uccide questo processo
+    threading.Timer(1.0, supervisor_restart).start()
+    return True, ""
+
 
 def wallbox_names(path):
     """Mappa sezione ini -> nome leggibile della wallbox.
@@ -630,8 +1035,40 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+    def send_json(self, payload, code=200):
+        body = json.dumps(payload).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        u = urlparse(self.path)
+
+        if u.path == "/update":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+            except (TypeError, ValueError):
+                pass
+            ok, err = request_update("manual")
+            self.send_json({"ok": ok, "error": err}, 200 if ok else 500)
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
     def do_GET(self):
         u = urlparse(self.path)
+
+        if u.path == "/version":
+            qs = parse_qs(u.query)
+            refresh = qs.get("refresh", ["0"])[0] in ("1", "true", "yes")
+            self.send_json(version_cached(refresh))
+            return
 
         if u.path == "/config":
             self.send_response(200)
@@ -741,7 +1178,11 @@ class H(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
-HTTPServer(("0.0.0.0", 8099), H).serve_forever()
+threading.Thread(target=version_worker, daemon=True).start()
+
+# ThreadingHTTPServer: il controllo versione e l'update non devono bloccare il
+# polling del log
+ThreadingHTTPServer(("0.0.0.0", 8099), H).serve_forever()
 PY
 
 bashio::log.info "Avvio: perl ocpp.pl"

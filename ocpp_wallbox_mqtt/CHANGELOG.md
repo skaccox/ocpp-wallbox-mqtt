@@ -1,4 +1,29 @@
 # Changelog
+## [1.0.6.8] - 2026-09-05
+- ADD il commit del server perl in uso e' sempre in cima, dopo l'ora: diventa
+  ambra con una freccia in su quando il ref configurato e' avanti, e cliccato
+  apre il pannello con i dettagli, "Check now" e l'aggiornamento. Il confronto
+  e' su git (HEAD vs punta di code_ref su origin), non su un numero di
+  versione, cosi' funziona anche su un fork o su un branch proprio
+- DEL pulsante "Update" accanto a Filter: rileggeva il log, ma con lo stesso
+  nome del nuovo aggiornamento si prestava all'equivoco. Con Refresh su OFF il
+  log si rilegge confermando il filtro (Invio)
+- CHG il controllo versione parte pochi secondi dopo l'avvio - e ritenta ogni
+  2 minuti se la rete non e' ancora pronta - cosi' la freccia compare subito
+  anche con auto_update disattivo
+- DEL opzione `single_update_now`: la sostituisce l'indicatore di versione,
+  che scrive un flag e fa riavviare l'add-on (il pull lo fa comunque run.sh
+  alla ripartenza)
+- CHG un aggiornamento chiesto dalla UI, se il fast-forward non passa, si
+  allinea comunque a origin/<ref>; l'esito viene mostrato nella UI invece di
+  restare solo nel log dell'add-on
+- CHG auto_update non aggiorna piu' solo all'avvio: ora applica l'update anche
+  al controllo orario, cosi' un add-on che non viene mai riavviato non resta
+  indietro per sempre. Aspetta la fine di una ricarica in corso (un riavvio
+  farebbe cadere la connessione della wallbox), non forza mai l'allineamento e
+  non ritenta lo stesso commit gia' fallito, per non riavviare in ciclo
+- CHG code_repo di default: il fork skaccox (multi-wallbox), come gia' scritto
+  in DOCS.md
 ## [1.0.6.7] - 2026-09-03
 - FIX WALLBOX1_SHARE e PRIORITY_WALLBOX venivano aggiunte commentate dal
   merge col template, ma per il server sono lo store of record di quota e
