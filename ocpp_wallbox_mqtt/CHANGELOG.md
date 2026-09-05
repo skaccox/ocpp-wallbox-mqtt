@@ -1,7 +1,9 @@
 # Changelog
 ## [1.7.8] - 2026-09-05
-- CHG nel log "Increasing to" era dello stesso verde delle righe CHG: ora e'
-  azzurro, e "Decreasing to" arancio invece del rosso degli errori
+- CHG colori del log: "Increasing to" era lo stesso verde delle righe CHG, ora
+  e' azzurro; "Decreasing to" resta rosso chiaro e sono gli ERROR a spostarsi
+  sul viola dei grid limit, cosi' il rosso vuol dire una cosa sola. "grid safe
+  limit exceeded" in grassetto per non confondersi con le riduzioni
 - CHG "Check now" verde in outline: si distingue da Close senza rubare l'ambra
   a "Update now", che e' l'unica azione che cambia qualcosa
 - FIX il pannello diceva che il riavvio interrompe la connessione della wallbox

@@ -616,7 +616,7 @@ body.history-mode #status {
    COLORI LOG
    ========================= */
 
-.err  { color:#f87171; }
+.err  { color:#a78bfa; }   /* viola chiaro, famiglia di .gridlimit */
 .warn { color:#fbbf24; }
 
 .info  { color:#9ca3af; }
@@ -631,12 +631,16 @@ body.history-mode #status {
 
 .scp       { color:#f59e0b; }
 
-/* Increasing/Decreasing sono le manovre sul limite, non uno stato: fuori dai
-   verdi delle CHG (.inc era lo stesso #4ade80 di .chgL) e fuori dal rosso degli
-   errori (.dec era lo stesso #f87171 di .err). Azzurro sale, arancio scende. */
+/* Increasing/Decreasing sono le manovre sul limite, non uno stato. Azzurro
+   sale, rosso scende; il verde resta alle CHG e il viola ai limiti e ai
+   problemi, cosi' nessuna delle due si confonde con l'ambra di .scp (il
+   limite dentro SetChargingProfile). */
 .inc       { color:#7dd3fc; }
-.dec       { color:#fb923c; }
-.safe      { color:#fb7185; }
+.dec       { color:#f87171; }
+
+/* stesso rosso di .dec, ma questa e' una soglia superata: il grassetto la
+   stacca dalle manovre ordinarie */
+.safe      { color:#fb7185; font-weight:700; }
 .event     { color:#60a5fa; }
 .gridlimit { color:#8b5cf6; }
 .retain    { color:#9ca3af; }
