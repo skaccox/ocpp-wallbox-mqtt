@@ -93,11 +93,11 @@ header .row{
   font-size:12px;
 }
 
+/* resta vuoto finche' il log si aggiorna: si riempie solo per dire che non ci
+   riesce piu', quindi niente larghezza fissa da tenere da parte */
 #status{
-  display:inline-block;
-  width:70px; 
-  text-align:left;
-  font-variant-numeric:tabular-nums;
+  color:#f87171;
+  font-size:11px;
 }
 
 /* Label compatti in linea */
@@ -424,14 +424,6 @@ body.history-mode #status {
       padding: 6px 10px;
       font-size: 12px;
     }
-
-  /* orario in basso a destra su mobile live */
-  #status {
-    position: absolute;
-    top: 18px;
-    left: 194px;
-    font-size: 11px;
-  }
 
   #filter {
     min-width: 100px;
@@ -807,7 +799,20 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
-  /* spazio contato: l'etichetta si tronca invece di arrivare sotto l'ora */
+  /* ancorato al chip il pannello sfora a destra e fa comparire lo scroll
+     orizzontale: centrato sotto l'header, largo quanto lo schermo meno un
+     margine */
+  .updatePanel{
+    position:fixed;
+    top:calc(var(--header-h) + 6px);
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+    width:min(300px, calc(100vw - 20px));
+    max-width:none;
+  }
+
+  /* spazio contato: l'etichetta si tronca invece di sfondare la riga */
   .verText{
     display:inline-block;
     max-width:58px;

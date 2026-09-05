@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.12] - 2026-09-05
+- DEL via l'orologio dall'header: su mobile finiva sopra la versione. Quello
+  spazio ora serve solo a dire che il log non si aggiorna piu'
+- FIX su mobile il pannello sforava a destra e faceva comparire lo scroll
+  orizzontale: ora e' centrato sotto l'header
 ## [1.7.11] - 2026-09-05
 - CHG "Increasing to" celeste invece dell'azzurro
 ## [1.7.10] - 2026-09-05

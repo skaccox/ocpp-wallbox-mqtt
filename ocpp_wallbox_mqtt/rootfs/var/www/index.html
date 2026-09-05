@@ -26,8 +26,8 @@
       <div class="topline">
         <strong>OCPP Wallbox</strong>
 
-        <!-- prima dell'ora: in GRAPH l'ora sparisce (body.history-mode #status)
-             e la versione si sposterebbe a ogni cambio vista -->
+        <!-- versione del server perl: la freccia compare solo se il ref
+             configurato e' avanti -->
         <span id="verWrap" class="verWrap" style="display:none">
           <button id="btnVersion" class="verBtn">
             <span id="verText" class="verText"></span>
@@ -36,7 +36,9 @@
           <div id="updatePanel" class="updatePanel" style="display:none"></div>
         </span>
 
-        <span class="muted" id="status">—</span>
+        <!-- niente orologio: restava vuoto e serve solo a dire che il log
+             non si aggiorna piu' -->
+        <span id="status"></span>
 
       
       </div>

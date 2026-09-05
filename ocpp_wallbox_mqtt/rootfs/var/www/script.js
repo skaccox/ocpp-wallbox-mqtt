@@ -358,7 +358,6 @@ if (limitKw != null && limitKw > 0) {
     const url = `log?n=${n}&_=${Date.now()}`;
     const q = (elFilter.value || "").trim().toLowerCase();
 
-    elStatus.textContent = "loading…";
 
     try {
       const r = await fetch(url, { cache: "no-store" });
@@ -581,7 +580,7 @@ if (kwh == null && isCharging && lastGoodKwh != null) kwh = lastGoodKwh;
         return `<div class="${c}">${html}</div>`;
       }).join("");
 
-      elStatus.textContent = new Date().toLocaleTimeString();
+      elStatus.textContent = "";   // caricato: nessun errore da mostrare
 
       if (followBottom) window.scrollTo(0, document.body.scrollHeight);
     } catch (e) {
