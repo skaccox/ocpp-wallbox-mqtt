@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.6] - 2026-09-05
+- FIX nel pannello della versione l'oggetto del commit usciva dal box invece di
+  andare a capo: .topline e' nowrap (titolo, versione e ora su una riga) e il
+  pannello, che le sta dentro, lo ereditava
 ## [1.7.5] - 2026-09-05
 - CHG l'aggiornamento non ricarica piu' la pagina: index/js/css arrivano
   dall'immagine dell'add-on, non dal repo perl, quindi dopo il riavvio sono

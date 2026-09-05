@@ -734,6 +734,12 @@ body.history-mode #status {
   border:1px solid var(--border);
   box-shadow:0 14px 30px rgba(0,0,0,.55);
   cursor:default;
+
+  /* .topline e' nowrap per tenere titolo, versione e ora su una riga, ma il
+     pannello lo eredita e l'oggetto del commit uscirebbe dal box invece di
+     andare a capo */
+  white-space:normal;
+  overflow-wrap:anywhere;
 }
 
 .updatePanel h4{
