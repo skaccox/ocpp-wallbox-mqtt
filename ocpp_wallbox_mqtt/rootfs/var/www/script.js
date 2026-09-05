@@ -733,16 +733,12 @@ window.stopLive = function stopLive() {
           ${shortDate(d.local_date)}</div>` : ""}
         ${extra}
         <div class="actions">
-          <button data-act="check">Check now</button>
+          <button class="check" data-act="check">Check now</button>
           <button data-act="close">Close</button>
         </div>`);
       return;
     }
 
-    if (d.charging) {
-      extra += `<div class="msg warn">A charging session is running: the restart
-        drops the wallbox connection.</div>`;
-    }
     if (d.ahead > 0) {
       extra += `<div class="msg warn">${d.ahead} local commit(s) not on
         <code>${esc(d.ref)}</code>: they would be left behind.</div>`;
@@ -767,7 +763,8 @@ window.stopLive = function stopLive() {
       ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
         ${shortDate(d.remote_date)}</div>` : ""}
       ${extra}
-      <div class="msg">The add-on restarts to apply it (a few seconds).</div>
+      <div class="msg warn">Press <strong>UPDATE NOW</strong> to install it.
+        The add-on restarts to apply the update.</div>
       <div class="actions">
         <button data-act="close">Cancel</button>
         <button class="go" data-act="go">Update now</button>

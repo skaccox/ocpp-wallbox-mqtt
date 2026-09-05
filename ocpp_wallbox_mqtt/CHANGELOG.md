@@ -1,4 +1,13 @@
 # Changelog
+## [1.7.8] - 2026-09-05
+- CHG nel log "Increasing to" era dello stesso verde delle righe CHG: ora e'
+  ciano, e "Decreasing to" arancio invece del rosso degli errori
+- CHG "Check now" verde in outline: si distingue da Close senza rubare l'ambra
+  a "Update now", che e' l'unica azione che cambia qualcosa
+- FIX il pannello diceva che il riavvio interrompe la connessione della wallbox
+  durante una ricarica: non e' vero, l'avviso e' stato tolto
+- CHG al suo posto il giallo (che si notava) porta l'istruzione: "Press UPDATE
+  NOW to install it", senza piu' promettere tempi di riavvio
 ## [1.7.7] - 2026-09-05
 - DOC LISTEN1=0 spegne il secondo socket: il server resta in ascolto sulla sola
   9000
