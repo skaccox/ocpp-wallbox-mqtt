@@ -744,33 +744,54 @@ def read_update_state():
     }
 
 
-# ocpp.pl dichiara la versione del server; il confronto per gli aggiornamenti
-# resta su git (il numero non cambia a ogni commit), ma come etichetta dice
-# molto piu' di uno sha.
-VER_RE = re.compile(r"""\$VERSION\s*\{\s*['"]?MAIN['"]?\s*\}\s*=\s*['"]([^'"]{1,32})['"]""")
+# Versione del server: la stessa che calcola Version() in ocpp_ini.pm, cioe' il
+# massimo fra $VERSION{MAIN|INI|FUNC|MQTT|WS} - ed e' quel numero che il server
+# pubblica su ocpp/heartbeat. Due dettagli non sono opzionali se si vuole
+# mostrare lo stesso valore: le chiavi sono quelle cinque (il server non guarda
+# le altre) e il confronto e' fra STRINGHE, perche' li' e' un "lt".
+VER_RE = re.compile(r"""\$VERSION\s*\{\s*['"]?(\w+)['"]?\s*\}\s*=\s*['"]([^'"]{1,32})['"]""")
+VER_KEYS = ("MAIN", "INI", "FUNC", "MQTT", "WS")
+
+
+def pick_version(text):
+    found = {}
+    for m in VER_RE.finditer(text):
+        found[m.group(1).upper()] = m.group(2)
+    if not found:
+        return ""
+
+    vals = [found[k] for k in VER_KEYS if k in found]
+    if not vals:
+        # fork che rinomina i moduli: meglio un numero che niente
+        vals = list(found.values())
+    return max(vals)
 
 
 def perl_version(rev=""):
-    """Numero di versione dichiarato in ocpp.pl, del working tree o di un ref.
+    """Versione del server, del working tree o della punta di un ref.
 
-    Del locale si legge il file, non il commit: e' quello che perl sta
-    davvero eseguendo.
+    Del locale si leggono i file, non il commit: sono quelli che perl sta
+    davvero eseguendo. Le librerie di terze parti sotto JSON/ e Net/ usano lo
+    scalare $VERSION, non $VERSION{...}, quindi non entrano nel conto.
     """
     if not APP_DIR:
         return ""
+
     if rev:
-        rc, out, _ = git("show", "%s:ocpp.pl" % rev)
-        if rc != 0:
-            return ""
-    else:
-        try:
-            with open(os.path.join(APP_DIR, "ocpp.pl"), "r",
+        rc, out, _ = git("grep", "-h", "-F", "$VERSION{", rev, "--", "*.pl", "*.pm")
+        return pick_version(out) if rc == 0 else ""
+
+    chunks = []
+    try:
+        for name in sorted(os.listdir(APP_DIR)):
+            if not name.endswith((".pl", ".pm")):
+                continue
+            with open(os.path.join(APP_DIR, name), "r",
                       encoding="utf-8", errors="replace") as fh:
-                out = fh.read(65536)  # la dichiarazione sta in cima
-        except OSError:
-            return ""
-    m = VER_RE.search(out[:65536])
-    return m.group(1) if m else ""
+                chunks.append(fh.read(65536))  # le dichiarazioni stanno in cima
+    except OSError:
+        return ""
+    return pick_version("\n".join(chunks))
 
 
 CHG_RE = re.compile(r"\bCHG\*")

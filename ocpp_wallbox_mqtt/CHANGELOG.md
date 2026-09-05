@@ -1,12 +1,20 @@
 # Changelog
-## [1.0.6.9] - 2026-09-05
-- ADD l'etichetta in cima e' il numero di versione del server ($VERSION{MAIN}
-  letto dall'ocpp.pl in esecuzione, es. v1.9919) invece dello sha del commit,
-  che restava incomprensibile. Lo sha resta nel pannello, accanto al numero
-- ADD la versione della punta del ref remoto, letta con "git show <ref>:ocpp.pl":
+## [1.7.0] - 2026-09-05
+- ADD l'etichetta in cima e' il numero di versione del server invece dello sha
+  del commit, che restava incomprensibile. Lo sha resta nel pannello, accanto
+  al numero
+- FIX la versione mostrata e' quella che calcola Version() in ocpp_ini.pm -
+  massimo di $VERSION{MAIN|INI|FUNC|MQTT|WS} confrontati come stringhe - cioe'
+  lo stesso numero pubblicato su ocpp/heartbeat. Leggendo il solo MAIN da
+  ocpp.pl usciva il numero dello script principale (1.9935 invece di 2.0059);
+  quale modulo tenga il massimo cambia nel tempo e non deve contare
+- ADD la versione della punta del ref remoto, letta con git grep sul ref:
   il numero nuovo si vede prima di aggiornare. Il confronto resta sui commit,
   quindi la freccia puo' comparire col numero fermo (upstream non lo tocca a
   ogni commit): il pannello mostra entrambi proprio per questo
+- ADD nel pannello anche repo e ref da cui arriva la versione mostrata: con un
+  fork il numero somiglia a quello di upstream e non si capiva quale dei due
+  si stesse guardando
 - CHG su mobile l'etichetta si tronca invece di sparire, per non finire
   sotto l'ora
 ## [1.0.6.8] - 2026-09-05

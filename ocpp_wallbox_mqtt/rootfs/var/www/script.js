@@ -676,6 +676,13 @@ window.stopLive = function stopLive() {
     return version ? "v" + version : short;
   }
 
+  // "https://gitlab.com/tizio/ocpp-mqtt-perl-server.git" -> "tizio/ocpp-mqtt-perl-server"
+  function shortRepo(url) {
+    const u = String(url || "").replace(/\.git$/, "").replace(/\/+$/, "");
+    const parts = u.split(/[/:]/).filter(Boolean);  // anche git@host:tizio/repo
+    return parts.slice(-2).join("/") || u;
+  }
+
   // nel pannello servono entrambi: il numero non cambia a ogni commit
   function full(version, short) {
     return version ? esc("v" + version) + " · <code>" + esc(short) + "</code>"
@@ -720,6 +727,7 @@ window.stopLive = function stopLive() {
       showPanel(`
         <h4>${d.pinned ? "Server pinned" : "Server up to date"}</h4>
         <div class="kv"><span>Running</span><span>${full(d.local_version, d.local_short)}</span></div>
+        <div class="kv"><span>Repo</span><code>${esc(shortRepo(d.repo))}</code></div>
         <div class="kv"><span>Ref</span><code>${esc(d.ref)}</code></div>
         ${d.local_subject ? `<div class="msg">“${esc(d.local_subject)}”
           ${shortDate(d.local_date)}</div>` : ""}
@@ -754,6 +762,8 @@ window.stopLive = function stopLive() {
       <div class="kv"><span>Running</span><span>${full(d.local_version, d.local_short)}</span></div>
       <div class="kv"><span>Latest</span><span>${full(d.remote_version, d.remote_short)}</span></div>
       <div class="kv"><span>New commits</span><strong>${d.behind || 0}</strong></div>
+      <div class="kv"><span>Repo</span><code>${esc(shortRepo(d.repo))}</code></div>
+      <div class="kv"><span>Ref</span><code>${esc(d.ref)}</code></div>
       ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
         ${shortDate(d.remote_date)}</div>` : ""}
       ${extra}

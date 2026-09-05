@@ -330,10 +330,18 @@ is the only way in, and it is always available.
 There is no option for a one-shot update: the web UI does it.
 
 The version of the Perl server is always shown in the header, right after the
-clock — `v1.9919`, read from `$VERSION{MAIN}` in the `ocpp.pl` that is actually
-running. If a fork does not declare it, the short git hash is shown instead.
-Click it and the panel gives version, commit, subject and date, the ref being
-followed, and a **Check now**.
+clock — `v2.0059`. It is computed with the same rule as `Version()` in
+`ocpp_ini.pm`: the highest of `$VERSION{MAIN|INI|FUNC|MQTT|WS}`, compared as
+strings, read from the files that are actually running. That is the number the
+server publishes on `ocpp/heartbeat`, so the panel and MQTT never disagree —
+including the string comparison, which is why the panel is deliberately not
+smarter than the server about, say, `10.0` against `9.0`. Which module happens
+to hold the highest number changes over time and does not matter; reading
+`MAIN` alone did, which is why it showed `1.9935`. If a fork declares none of
+those keys, the short git hash is shown instead.
+
+Click it and the panel gives version, commit, subject and date, the repository
+and ref being followed, and a **Check now**.
 
 What is *compared*, though, is the commit, not that number: the version string
 only moves when upstream decides to bump it, while the code moves at every

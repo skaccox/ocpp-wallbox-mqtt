@@ -743,6 +743,11 @@ body.history-mode #status {
 }
 
 .updatePanel .kv span{ color:var(--muted); }
+.updatePanel .kv > span:last-child{
+  color:var(--text);
+  text-align:right;
+  word-break:break-word;
+}
 .updatePanel code{ color:#22c55e; }
 .updatePanel .msg{ margin-top:8px; color:var(--muted); line-height:1.4; }
 .updatePanel .msg.warn{ color:#fbbf24; }
