@@ -1,4 +1,11 @@
 # Changelog
+## [1.7.5] - 2026-09-05
+- CHG l'aggiornamento non ricarica piu' la pagina: index/js/css arrivano
+  dall'immagine dell'add-on, non dal repo perl, quindi dopo il riavvio sono
+  identici. Il pannello dice quando la nuova versione e' su e il log riprende
+  da solo
+- DEL con il reload se ne va anche il ripristino della vista aggiunto in 1.7.3:
+  senza ricaricare, LIVE resta LIVE
 ## [1.7.4] - 2026-09-05
 - FIX ocpp_verbose si fermava a 15 nello schema, ma il server arriva a 22
 ## [1.7.3] - 2026-09-05

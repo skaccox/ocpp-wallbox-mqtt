@@ -8,37 +8,6 @@ let lastGoodKw = null;
 let lastGoodKwh = null;
 let lastGoodKwTs = null; // timestamp log dell’ultima CHG* valida
 let lastGoodExporting = false;
-// L'aggiornamento ricarica la pagina, che altrimenti riparte da default_view:
-// chi stava guardando LIVE con default_view=graph si ritrovava nei grafici.
-// Il ripristino vale una volta sola e solo se recente, cosi' un reload a mano
-// mezz'ora dopo non riapre una vista scelta chissa' quando.
-const VIEW_KEY = "ocppViewAfterUpdate";
-const VIEW_MAX_AGE = 5 * 60 * 1000;
-
-window.rememberViewForReload = function rememberViewForReload() {
-  try {
-    sessionStorage.setItem(VIEW_KEY, JSON.stringify({
-      mode: window.currentMode || "live",
-      ts: Date.now()
-    }));
-  } catch (e) { /* storage non disponibile: si riparte dal default */ }
-};
-
-(function restoreViewAfterReload() {
-  let saved = null;
-  try {
-    const raw = sessionStorage.getItem(VIEW_KEY);
-    if (!raw) return;
-    sessionStorage.removeItem(VIEW_KEY);
-    saved = JSON.parse(raw);
-  } catch (e) { return; }
-
-  if (!saved || !saved.mode) return;
-  if (!(Date.now() - saved.ts < VIEW_MAX_AGE)) return;
-
-  window.OCPP_DEFAULT_VIEW = (saved.mode === "history") ? "graph" : "live";
-})();
-
 window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live";
 
 
@@ -828,7 +797,7 @@ window.stopLive = function stopLive() {
     busy = true;
     wrap.classList.add("busy");
     showPanel(`<h4>Updating…</h4><div class="msg">The add-on is restarting.
-      This page reloads by itself as soon as the server is back.</div>`);
+      The panel says when the new version is up.</div>`);
 
     try {
       const r = await fetch("update", { method: "POST", cache: "no-store" });
@@ -854,8 +823,10 @@ window.stopLive = function stopLive() {
         const d = await getVersion(false);
 
         if (d.local && wasLocal && d.local !== wasLocal) {
-          window.rememberViewForReload();
-          location.reload();
+          info = d;
+          paint();
+          renderDone("", "Updated to " + esc(label(d.local_version, d.local_short)) +
+            ". The log picks up again on its own.");
           return;
         }
         if (d.restart_error) {
