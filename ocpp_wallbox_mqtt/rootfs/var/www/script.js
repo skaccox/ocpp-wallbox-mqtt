@@ -671,16 +671,28 @@ window.stopLive = function stopLive() {
     panel.style.display = "block";
   }
 
+  // "1.9919" se ocpp.pl lo dichiara, altrimenti si ripiega sullo sha
+  function label(version, short) {
+    return version ? "v" + version : short;
+  }
+
+  // nel pannello servono entrambi: il numero non cambia a ogni commit
+  function full(version, short) {
+    return version ? esc("v" + version) + " · <code>" + esc(short) + "</code>"
+                   : "<code>" + esc(short) + "</code>";
+  }
+
   function paint() {
     const d = info || {};
     const short = d.local_short || "";
+    const name = label(d.local_version, short);
 
-    text.textContent = short;
+    text.textContent = name;
     wrap.style.display = short ? "inline-flex" : "none";
     wrap.classList.toggle("has-update", !!d.update_available);
     btn.title = d.update_available
       ? d.behind + " new commit(s) on " + d.ref + " — click to update"
-      : "Server " + short;
+      : "Server " + name + " (" + short + ")";
   }
 
   function renderPanel() {
@@ -707,7 +719,7 @@ window.stopLive = function stopLive() {
       }
       showPanel(`
         <h4>${d.pinned ? "Server pinned" : "Server up to date"}</h4>
-        <div class="kv"><span>Running</span><code>${esc(d.local_short)}</code></div>
+        <div class="kv"><span>Running</span><span>${full(d.local_version, d.local_short)}</span></div>
         <div class="kv"><span>Ref</span><code>${esc(d.ref)}</code></div>
         ${d.local_subject ? `<div class="msg">“${esc(d.local_subject)}”
           ${shortDate(d.local_date)}</div>` : ""}
@@ -739,8 +751,8 @@ window.stopLive = function stopLive() {
 
     showPanel(`
       <h4>Server update available</h4>
-      <div class="kv"><span>Running</span><code>${esc(d.local_short)}</code></div>
-      <div class="kv"><span>Latest</span><code>${esc(d.remote_short)}</code></div>
+      <div class="kv"><span>Running</span><span>${full(d.local_version, d.local_short)}</span></div>
+      <div class="kv"><span>Latest</span><span>${full(d.remote_version, d.remote_short)}</span></div>
       <div class="kv"><span>New commits</span><strong>${d.behind || 0}</strong></div>
       ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
         ${shortDate(d.remote_date)}</div>` : ""}

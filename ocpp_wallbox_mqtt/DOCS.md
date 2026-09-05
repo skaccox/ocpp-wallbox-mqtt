@@ -329,15 +329,20 @@ is the only way in, and it is always available.
 
 There is no option for a one-shot update: the web UI does it.
 
-The commit the Perl server is running is always shown in the header, right
-after the clock — a short git hash such as `c986b8e`. Click it and the panel
-tells you what it is, the subject and date of that commit, the ref being
-followed, and offers **Check now**.
+The version of the Perl server is always shown in the header, right after the
+clock — `v1.9919`, read from `$VERSION{MAIN}` in the `ocpp.pl` that is actually
+running. If a fork does not declare it, the short git hash is shown instead.
+Click it and the panel gives version, commit, subject and date, the ref being
+followed, and a **Check now**.
 
-The add-on compares that commit with the tip of `code_ref` on `code_repo` —
-there is no version number to compare, and the repository is an option, so git
-is the only reliable reference. The check runs a few seconds after startup and
-once an hour after that, whatever `auto_update` says.
+What is *compared*, though, is the commit, not that number: the version string
+only moves when upstream decides to bump it, while the code moves at every
+commit — and since the repository itself is an option (`code_repo` /
+`code_ref`), git is the only reliable reference. So the panel shows both, and
+two different commits can legitimately carry the same version number.
+
+The check runs a few seconds after startup and once an hour after that,
+whatever `auto_update` says.
 
 When the configured ref is ahead, the indicator turns **amber with an up
 arrow**. The panel then shows how many new commits there are and the subject
@@ -360,8 +365,8 @@ running Perl process.
 - A charging session in progress is reported before you confirm: the restart
   drops the wallbox connection.
 
-On a phone only the arrow is shown, and only when there is something to
-update: the top bar has no room for the hash.
+On a phone the label is truncated to keep clear of the clock; the full
+version and commit are in the panel.
 
 ⚠️ This updates the server engine, not the Home Assistant add-on itself.
 

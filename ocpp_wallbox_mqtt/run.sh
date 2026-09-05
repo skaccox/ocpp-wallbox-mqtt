@@ -744,6 +744,35 @@ def read_update_state():
     }
 
 
+# ocpp.pl dichiara la versione del server; il confronto per gli aggiornamenti
+# resta su git (il numero non cambia a ogni commit), ma come etichetta dice
+# molto piu' di uno sha.
+VER_RE = re.compile(r"""\$VERSION\s*\{\s*['"]?MAIN['"]?\s*\}\s*=\s*['"]([^'"]{1,32})['"]""")
+
+
+def perl_version(rev=""):
+    """Numero di versione dichiarato in ocpp.pl, del working tree o di un ref.
+
+    Del locale si legge il file, non il commit: e' quello che perl sta
+    davvero eseguendo.
+    """
+    if not APP_DIR:
+        return ""
+    if rev:
+        rc, out, _ = git("show", "%s:ocpp.pl" % rev)
+        if rc != 0:
+            return ""
+    else:
+        try:
+            with open(os.path.join(APP_DIR, "ocpp.pl"), "r",
+                      encoding="utf-8", errors="replace") as fh:
+                out = fh.read(65536)  # la dichiarazione sta in cima
+        except OSError:
+            return ""
+    m = VER_RE.search(out[:65536])
+    return m.group(1) if m else ""
+
+
 CHG_RE = re.compile(r"\bCHG\*")
 PWR_RE = re.compile(r"\bP\s*=\s*([0-9]+(?:[.,][0-9]+)?)")
 TS_RE  = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})")
@@ -797,6 +826,7 @@ def version_info(fetch=True):
         "ref": CODE_REF,
         "local": "", "local_short": "", "local_date": "", "local_subject": "",
         "remote": "", "remote_short": "", "remote_date": "", "remote_subject": "",
+        "local_version": "", "remote_version": "",
         "behind": 0, "ahead": 0,
         "update_available": False,
         "pinned": False,
@@ -819,6 +849,7 @@ def version_info(fetch=True):
         info["local_short"]   = head["short"]
         info["local_date"]    = head["date"]
         info["local_subject"] = head["subject"]
+        info["local_version"] = perl_version()
 
         if fetch:
             rc, _, err = git("fetch", "--prune", "--tags", "origin", timeout=60)
@@ -843,6 +874,7 @@ def version_info(fetch=True):
             info["remote_short"]   = rem["short"]
             info["remote_date"]    = rem["date"]
             info["remote_subject"] = rem["subject"]
+            info["remote_version"] = perl_version(target)
 
             for key, rng in (("behind", "HEAD..%s" % target),
                              ("ahead",  "%s..HEAD" % target)):

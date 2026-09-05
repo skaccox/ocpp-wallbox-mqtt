@@ -773,8 +773,14 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
-  /* in cima c'e' posto per un'icona sola: il commit resta nel pannello */
-  .verText{ display:none; }
-  .verWrap:not(.has-update){ display:none !important; }
+  /* spazio contato: l'etichetta si tronca invece di arrivare sotto l'ora */
+  .verText{
+    display:inline-block;
+    max-width:58px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    vertical-align:bottom;
+  }
   .verBtn{ padding:1px 5px; }
 }
