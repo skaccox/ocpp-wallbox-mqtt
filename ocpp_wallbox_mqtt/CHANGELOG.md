@@ -1,11 +1,16 @@
 # Changelog
+## [1.0.6.9] - 2026-09-05
+- ADD l'etichetta in cima e' il numero di versione del server ($VERSION{MAIN}
+  letto dall'ocpp.pl in esecuzione, es. v1.9919) invece dello sha del commit,
+  che restava incomprensibile. Lo sha resta nel pannello, accanto al numero
+- ADD la versione della punta del ref remoto, letta con "git show <ref>:ocpp.pl":
+  il numero nuovo si vede prima di aggiornare. Il confronto resta sui commit,
+  quindi la freccia puo' comparire col numero fermo (upstream non lo tocca a
+  ogni commit): il pannello mostra entrambi proprio per questo
+- CHG su mobile l'etichetta si tronca invece di sparire, per non finire
+  sotto l'ora
 ## [1.0.6.8] - 2026-09-05
-- ADD l'etichetta in cima e' la versione del server ($VERSION{MAIN} letto da
-  ocpp.pl, es. v1.9919), con lo sha come ripiego se un fork non la dichiara;
-  il pannello mostra numero e commit di entrambe le versioni, perche' il
-  confronto resta sui commit e due commit diversi possono avere lo stesso
-  numero
-- ADD la versione del server perl in uso e' sempre in cima, dopo l'ora: diventa
+- ADD il commit del server perl in uso e' sempre in cima, dopo l'ora: diventa
   ambra con una freccia in su quando il ref configurato e' avanti, e cliccato
   apre il pannello con i dettagli, "Check now" e l'aggiornamento. Il confronto
   e' su git (HEAD vs punta di code_ref su origin), non su un numero di
