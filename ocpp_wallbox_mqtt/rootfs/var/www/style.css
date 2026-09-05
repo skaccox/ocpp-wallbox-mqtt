@@ -21,7 +21,13 @@ header{
   top:0;
   background:var(--bar);
   border-bottom:1px solid var(--border);
-  z-index:30;
+
+  /* sticky + z-index rendono l'header un contesto di impilamento: il z-index
+     di quel che sta dentro (pannello versione compreso) vale solo qui dentro,
+     fuori conta questo numero. Deve stare sopra #chartWrap.fullscreen (100),
+     che parte comunque sotto l'header (top: var(--header-h)), altrimenti il
+     pannello finisce dietro al grafico a tutto schermo. */
+  z-index:200;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
@@ -716,7 +722,7 @@ body.history-mode #status {
   position:absolute;
   top:calc(100% + 8px);
   left:0;
-  z-index:120;
+  z-index:120;  /* solo dentro l'header: fuori decide il suo z-index */
   width:270px;
   max-width:calc(100vw - 24px);
   padding:12px 14px;

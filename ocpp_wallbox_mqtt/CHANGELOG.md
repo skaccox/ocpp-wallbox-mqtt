@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.1] - 2026-09-05
+- FIX in GRAPH il pannello della versione finiva dietro al grafico: header e
+  sticky con z-index, quindi e' un contesto di impilamento e fuori contava il
+  suo 30 contro il 100 di #chartWrap.fullscreen, non il 120 del pannello.
+  Header portato a 200 (il grafico a tutto schermo parte comunque sotto)
 ## [1.7.0] - 2026-09-05
 - ADD l'etichetta in cima e' il numero di versione del server invece dello sha
   del commit, che restava incomprensibile. Lo sha resta nel pannello, accanto
