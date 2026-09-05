@@ -763,11 +763,10 @@ window.stopLive = function stopLive() {
       ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
         ${shortDate(d.remote_date)}</div>` : ""}
       ${extra}
-      <div class="msg warn">Press <strong>UPDATE NOW</strong> to install it.
-        The add-on restarts to apply the update.</div>
+      <div class="msg warn">Press <strong>UPDATE NOW</strong> to update.</div>
       <div class="actions">
-        <button data-act="close">Cancel</button>
         <button class="go" data-act="go">Update now</button>
+        <button data-act="close">Close</button>
       </div>`);
   }
 
@@ -793,8 +792,8 @@ window.stopLive = function stopLive() {
   async function startUpdate() {
     busy = true;
     wrap.classList.add("busy");
-    showPanel(`<h4>Updating…</h4><div class="msg">The add-on is restarting.
-      The panel says when the new version is up.</div>`);
+    showPanel(`<h4>Updating…</h4><div class="msg">The panel says when the new
+      version is up.</div>`);
 
     try {
       const r = await fetch("update", { method: "POST", cache: "no-store" });
