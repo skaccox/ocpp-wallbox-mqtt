@@ -1,4 +1,7 @@
 # Changelog
+## [1.7.2] - 2026-09-05
+- CHG versione e ora invertite in cima: in GRAPH l'ora viene nascosta e la
+  versione, che le stava dopo, saltava a sinistra a ogni cambio vista
 ## [1.7.1] - 2026-09-05
 - FIX in GRAPH il pannello della versione finiva dietro al grafico: header e
   sticky con z-index, quindi e' un contesto di impilamento e fuori contava il
