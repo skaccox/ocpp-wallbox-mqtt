@@ -1,4 +1,11 @@
 # Changelog
+## [1.7.7] - 2026-09-05
+- DOC LISTEN1=0 spegne il secondo socket: il server resta in ascolto sulla sola
+  9000
+- FIX DOCS/README dicevano che la seconda wallbox va sulla porta 9001: le due si
+  distinguono per il path (WALLBOX_PATH, default = nome della sezione), quindi
+  stanno entrambe sulla 9000. La 9001 e' solo un secondo socket, non "la porta
+  della seconda wallbox"
 ## [1.7.6] - 2026-09-05
 - FIX nel pannello della versione l'oggetto del commit usciva dal box invece di
   andare a capo: .topline e' nowrap (titolo, versione e ora su una riga) e il

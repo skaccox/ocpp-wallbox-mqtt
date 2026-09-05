@@ -212,19 +212,44 @@ Changing either option is applied **on the next add-on restart, even with
 
 ### 🔌🔌 Multi-wallbox
 
-Two wallboxes are supported: the first connects on **port 9000**, the second on
-**9001**. There is nothing to configure for this — point the second wallbox at
-port 9001 and it works.
+Two wallboxes are supported, and what tells them apart is the **URL path, not
+the port**. Each wallbox section has a `WALLBOX_PATH` (it defaults to the name
+of the section), and the wallbox must be configured to connect to exactly that
+path:
 
-Those ports are deliberately **not** add-on options. The server binds both by
+```
+ws://<home-assistant-host>:9000/<WALLBOX_PATH>
+```
+
+So both wallboxes normally live on **port 9000** — that is the usual setup:
+
+```ini
+[wallbox01]
+WALLBOX_PATH=giardino     ; ws://ha:9000/giardino
+
+[wallbox02]
+WALLBOX_PATH=garage       ; ws://ha:9000/garage
+```
+
+A wallbox connecting on a path the server does not know is not recognised, so
+if one of the two never shows up in the log, check that path first.
+
+The server also listens on a **second port, 9001**, out of the box. It is a
+second socket, not "the port of the second wallbox": either wallbox can use
+either port, because identity comes from the path. Use it only if something in
+your network makes a single port awkward — and if you do not want it at all,
+`LISTEN1=0` in `ocpp.ini` switches it off and leaves the server listening on
+9000 alone.
+
+Those ports are deliberately **not** add-on options. The server binds them by
 default, and since the add-on runs with `host_network: true` it binds them
 straight on the Home Assistant host, with no port mapping in between — so there
 would be nothing for an add-on setting to do.
 
 To move them, set `LISTEN0` and/or `LISTEN1` in `ocpp.ini`: the server reads any
-`LISTEN<n>` key as the listening port of the n-th wallbox. Both are already in
-your `ocpp.ini` as commented defaults, so uncomment and edit. The add-on never
-writes those keys, so whatever you put there stays.
+`LISTEN<n>` key as a listening port. Both are already in your `ocpp.ini` as
+commented defaults, so uncomment and edit. The add-on never writes those keys,
+so whatever you put there stays.
 
 **The power-sharing parameters are not add-on options: they live in
 `ocpp.ini`.** They are tuning knobs you set once and rarely touch, and putting
@@ -260,10 +285,12 @@ what the graphs use:
 
 ```ini
 [wallbox01]
+WALLBOX_PATH=wallbox01
 WALLBOX_MQTT_BASE=wallbox01
 WALLBOX_MQTT_NAME=Garage
 
 [wallbox02]
+WALLBOX_PATH=wallbox02
 WALLBOX_MQTT_BASE=wallbox02
 WALLBOX_MQTT_NAME=Cortile
 ```
@@ -408,6 +435,9 @@ After installing, go to /config/ocpp.ini and verify the configuration (the add-o
 Configure the wallbox to connect to the OCPP server with:
 
 Port: 9000
+
+Path: the `WALLBOX_PATH` of its section in `ocpp.ini`, i.e.
+`ws://<host>:9000/<WALLBOX_PATH>`
 
 Encryption: none (no TLS)
 

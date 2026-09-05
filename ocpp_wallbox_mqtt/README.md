@@ -14,7 +14,8 @@ the branch are add-on options (`code_repo` / `code_ref`), so you can point it
 at upstream or at any fork:
 https://gitlab.com/skaccox/ocpp-mqtt-perl-server
 
-Two wallboxes are supported: the first connects on port 9000, the second on 9001.
+Two wallboxes are supported: both connect on port 9000 and are told apart by the
+URL path (`ws://host:9000/<WALLBOX_PATH>`), one path per wallbox section in `ocpp.ini`.
 
 It supports core OCPP features for managing charging sessions and reporting meter data, and includes dynamic load management to automatically adjust the charger’s power limits based on configurable rules (e.g., time of day / day of week) to optimize grid import and comply with power constraints.
 
