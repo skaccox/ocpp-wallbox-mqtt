@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.3] - 2026-09-05
+- FIX dopo l'aggiornamento la pagina ripartiva da default_view: chi stava in
+  LIVE con default_view=graph si ritrovava nei grafici. Ora torna alla vista
+  che stava guardando (una volta sola, e solo se il reload arriva entro 5
+  minuti: un reload a mano piu' tardi riparte dal default)
 ## [1.7.2] - 2026-09-05
 - CHG versione e ora invertite in cima: in GRAPH l'ora viene nascosta e la
   versione, che le stava dopo, saltava a sinistra a ogni cambio vista
