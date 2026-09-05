@@ -633,8 +633,8 @@ body.history-mode #status {
 
 /* Increasing/Decreasing sono le manovre sul limite, non uno stato: fuori dai
    verdi delle CHG (.inc era lo stesso #4ade80 di .chgL) e fuori dal rosso degli
-   errori (.dec era lo stesso #f87171 di .err). Ciano sale, arancio scende. */
-.inc       { color:#22d3ee; }
+   errori (.dec era lo stesso #f87171 di .err). Azzurro sale, arancio scende. */
+.inc       { color:#7dd3fc; }
 .dec       { color:#fb923c; }
 .safe      { color:#fb7185; }
 .event     { color:#60a5fa; }

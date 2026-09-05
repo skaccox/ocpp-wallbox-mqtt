@@ -1,7 +1,7 @@
 # Changelog
 ## [1.7.8] - 2026-09-05
 - CHG nel log "Increasing to" era dello stesso verde delle righe CHG: ora e'
-  ciano, e "Decreasing to" arancio invece del rosso degli errori
+  azzurro, e "Decreasing to" arancio invece del rosso degli errori
 - CHG "Check now" verde in outline: si distingue da Close senza rubare l'ambra
   a "Update now", che e' l'unica azione che cambia qualcosa
 - FIX il pannello diceva che il riavvio interrompe la connessione della wallbox
