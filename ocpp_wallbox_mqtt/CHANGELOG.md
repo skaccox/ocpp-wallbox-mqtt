@@ -1,4 +1,14 @@
 # Changelog
+## [1.7.16] - 2026-09-07
+- FIX il pannello poteva restare aperto in attesa: la fine si riconosceva solo
+  dal commit cambiato, ora vale anche l'esito scritto da run.sh, quindi si
+  chiude anche quando il commit resta lo stesso
+- CHG finito l'aggiornamento il pannello si chiude da solo dopo un paio di
+  secondi, invece di aspettare un click
+- CHG l'attesa massima scende da 4 minuti a 90 secondi e il messaggio dice cosa
+  fare invece di dare l'add-on per morto
+- FIX il controllo periodico ridisegnava il pannello anche quando mostrava
+  l'esito di un aggiornamento, cancellandolo sotto gli occhi
 ## [1.7.15] - 2026-09-07
 - ADD "Check now" conferma di aver controllato con una riga verde per qualche
   secondo: senza aggiornamenti il pannello restava identico e sembrava inerte

@@ -660,7 +660,7 @@ window.stopLive = function stopLive() {
 
   const RECHECK_MS = 15 * 60 * 1000;  // ricontrollo dal browser
   const RETRY_MS   = 8 * 1000;        // il server non ha ancora controllato
-  const GIVEUP_MS  = 4 * 60 * 1000;   // attesa massima del riavvio
+  const GIVEUP_MS  = 90 * 1000;       // attesa massima del riavvio
 
   let info = null;
   let busy = false;
@@ -669,6 +669,10 @@ window.stopLive = function stopLive() {
   // una riga che lo dica non si capisce se il tasto ha fatto qualcosa.
   let flash = "";
   let flashTimer = null;
+
+  // Quando il pannello mostra l'esito di un aggiornamento non va ridisegnato
+  // dal controllo periodico: il messaggio sparirebbe sotto gli occhi.
+  let resultShown = false;
 
   function setFlash(text, ms = 3500) {
     flash = text;
@@ -699,11 +703,13 @@ window.stopLive = function stopLive() {
 
   function closePanel() {
     panel.style.display = "none";
+    resultShown = false;
   }
 
-  function showPanel(html) {
+  function showPanel(html, isResult) {
     panel.innerHTML = html;
     panel.style.display = "block";
+    resultShown = !!isResult;
   }
 
   // "1.9919" se ocpp.pl lo dichiara, altrimenti si ripiega sullo sha
@@ -812,7 +818,7 @@ window.stopLive = function stopLive() {
     window.ocppUpdating = false;
     wrap.classList.remove("busy");
     showPanel(`<h4>Server update</h4><div class="msg ${cls}">${html}</div>
-      <div class="actions"><button data-act="close">Close</button></div>`);
+      <div class="actions"><button data-act="close">Close</button></div>`, true);
   }
 
   async function checkNow() {
@@ -848,25 +854,53 @@ window.stopLive = function stopLive() {
       // il riavvio puo' arrivare prima della risposta: non e' un errore
     }
 
-    waitForRestart(Date.now(), info ? info.local : "");
+    const before = info || {};
+    waitForRestart(Date.now(), before.local || "",
+      (before.last_update && before.last_update.when) || "");
   }
 
-  function waitForRestart(t0, wasLocal) {
+  // Finito bene: niente da leggere, il pannello si chiude da solo. Restava
+  // aperto in attesa di un click che non ha motivo di esserci.
+  function finishOk(d) {
+    info = d;
+    paint();
+    if (typeof load === "function") load();   // con Refresh su OFF nessun tick
+    busy = false;
+    window.ocppUpdating = false;
+    wrap.classList.remove("busy");
+
+    showPanel(`<h4>Server updated</h4>
+      <div class="msg ok">Now on ${esc(label(d.local_version, d.local_short))}.</div>`, true);
+    setTimeout(() => { if (!busy) closePanel(); }, 2500);
+  }
+
+  function waitForRestart(t0, wasLocal, wasWhen) {
     setTimeout(async () => {
       if (Date.now() - t0 > GIVEUP_MS) {
-        renderDone("err", "The add-on did not come back. Check the add-on log.");
+        renderDone("warn", "Still nothing after " + Math.round(GIVEUP_MS / 1000) +
+          "s. The update may have gone through anyway: press Check now, or " +
+          "reload the page and look at the add-on log.");
         return;
       }
       try {
         const d = await getVersion(false);
+        const st = d.last_update || {};
+        // un esito precedente non conta: deve essere nuovo rispetto a prima
+        const fresh = st.when && st.when !== wasWhen;
 
+        // il commit e' cambiato: e' andata, comunque la si guardi
         if (d.local && wasLocal && d.local !== wasLocal) {
-          info = d;
-          paint();
-          // con Refresh su OFF nessun tick andrebbe a riprendere il log
-          if (typeof load === "function") load();
-          renderDone("", "Updated to " + esc(label(d.local_version, d.local_short)) +
-            ". The log picks up again on its own.");
+          finishOk(d);
+          return;
+        }
+        // niente piu' in sospeso e run.sh ha scritto un esito nuovo: ha finito
+        // anche se il commit e' lo stesso (fast-forward a vuoto, ref gia' li')
+        if (!d.pending && fresh) {
+          if (st.status === "error") {
+            renderDone("err", esc(st.message || "Update refused."));
+          } else {
+            finishOk(d);
+          }
           return;
         }
         if (d.restart_error) {
@@ -874,17 +908,15 @@ window.stopLive = function stopLive() {
             ". The update will be applied at the next add-on restart.");
           return;
         }
-        // stesso commit e nessun update in sospeso: run.sh ha gia' concluso
+        // nessun esito nuovo ma neanche niente in sospeso: non e' partito
         if (!d.pending && Date.now() - t0 > 25000) {
-          const st = d.last_update || {};
-          renderDone(st.status === "error" ? "err" : "warn",
-            st.message ? esc(st.message) : "Nothing was updated.");
+          renderDone("warn", "Nothing was updated.");
           return;
         }
       } catch (e) {
         // server giu' durante il riavvio: normale
       }
-      waitForRestart(t0, wasLocal);
+      waitForRestart(t0, wasLocal, wasWhen);
     }, 3000);
   }
 
@@ -895,7 +927,7 @@ window.stopLive = function stopLive() {
       if (!busy) {
         info = d;
         paint();
-        if (isOpen()) renderPanel();
+        if (isOpen() && !resultShown) renderPanel();
       }
       // il server fa il primo controllo pochi secondi dopo l'avvio
       if (!d.checked) next = RETRY_MS;
