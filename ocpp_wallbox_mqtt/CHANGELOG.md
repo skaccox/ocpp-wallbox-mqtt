@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.17] - 2026-09-07
+- FIX premendo "Check now" e subito dopo UPDATE NOW, il ridisegno differito del
+  messaggio verde rimetteva a schermo il pannello con "Update now" mentre
+  l'aggiornamento era in corso
 ## [1.7.16] - 2026-09-07
 - FIX il pannello poteva restare aperto in attesa: la fine si riconosceva solo
   dal commit cambiato, ora vale anche l'esito scritto da run.sh, quindi si

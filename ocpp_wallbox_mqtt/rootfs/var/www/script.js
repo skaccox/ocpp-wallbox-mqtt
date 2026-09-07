@@ -680,7 +680,9 @@ window.stopLive = function stopLive() {
     if (!text) return;
     flashTimer = setTimeout(() => {
       flash = "";
-      if (isOpen()) renderPanel();
+      // non durante un aggiornamento e non sopra un esito: ridisegnare qui
+      // rimetterebbe a schermo il pannello con "Update now" a lavoro in corso
+      if (isOpen() && !busy && !resultShown) renderPanel();
     }, ms);
   }
 
@@ -837,6 +839,7 @@ window.stopLive = function stopLive() {
   }
 
   async function startUpdate() {
+    setFlash("");        // annulla un eventuale ridisegno gia' programmato
     busy = true;
     window.ocppUpdating = true;   // lo legge load() per spiegare il buco
     wrap.classList.add("busy");
