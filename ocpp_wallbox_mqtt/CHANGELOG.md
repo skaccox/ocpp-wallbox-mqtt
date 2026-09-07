@@ -1,4 +1,7 @@
 # Changelog
+## [1.7.13] - 2026-09-07
+- FIX cambiare "Righe:" non ricaricava il log: con Refresh su OFF non succedeva
+  proprio niente
 ## [1.7.12] - 2026-09-05
 - DEL via l'orologio dall'header: su mobile finiva sopra la versione. Quello
   spazio ora serve solo a dire che il log non si aggiorna piu'

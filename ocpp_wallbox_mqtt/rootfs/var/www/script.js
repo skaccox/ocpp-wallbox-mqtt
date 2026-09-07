@@ -88,7 +88,9 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
 
     // Solo su change (blur/invio): normalizzare su "input" romperebbe la
     // digitazione, "1" di 10000 verrebbe subito riscritto a 50
-    elLines.addEventListener("change", () => linesValue(true));
+    // Rilegge subito col numero nuovo: con Refresh su OFF non ci sarebbe nessun
+    // tick a farlo, e cambiare il valore non avrebbe alcun effetto visibile
+    elLines.addEventListener("change", () => { linesValue(true); load(); });
 
     // Bottone "Vai in fondo": riattiva follow e scende
     btnBottom.addEventListener("click", () => {
