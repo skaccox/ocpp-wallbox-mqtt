@@ -363,6 +363,16 @@ if (limitKw != null && limitKw > 0) {
 
     try {
       const r = await fetch(url, { cache: "no-store" });
+
+      // Mentre l'add-on si riavvia l'ingress risponde con la propria pagina di
+      // errore: senza questi due controlli l'HTML veniva stampato nel box del
+      // log al posto delle righe. Il tipo serve oltre allo stato, perche' un
+      // proxy puo' restituire la sua pagina con un 200.
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      if (!(r.headers.get("Content-Type") || "").includes("text/plain")) {
+        throw new Error("risposta non valida");
+      }
+
       const txt = await r.text();
 
       const all = txt.split("\n").filter(x => x.length);
@@ -583,10 +593,19 @@ if (kwh == null && isCharging && lastGoodKwh != null) kwh = lastGoodKwh;
       }).join("");
 
       elStatus.textContent = "";   // caricato: nessun errore da mostrare
+      elStatus.className = "";
 
       if (followBottom) window.scrollTo(0, document.body.scrollHeight);
     } catch (e) {
-      elStatus.textContent = "errore log";
+      // Il log a schermo non si tocca: restano le ultime righe buone, con
+      // scritto perche' non arrivano piu' quelle nuove.
+      if (window.ocppUpdating) {
+        elStatus.textContent = "aggiornamento in corso…";
+        elStatus.className = "upd";
+      } else {
+        elStatus.textContent = "log non raggiungibile";
+        elStatus.className = "";
+      }
     }
   }
 
@@ -773,6 +792,7 @@ window.stopLive = function stopLive() {
 
   function renderDone(cls, html) {
     busy = false;
+    window.ocppUpdating = false;
     wrap.classList.remove("busy");
     showPanel(`<h4>Server update</h4><div class="msg ${cls}">${html}</div>
       <div class="actions"><button data-act="close">Close</button></div>`);
@@ -792,6 +812,7 @@ window.stopLive = function stopLive() {
 
   async function startUpdate() {
     busy = true;
+    window.ocppUpdating = true;   // lo legge load() per spiegare il buco
     wrap.classList.add("busy");
     showPanel(`<h4>Updating…</h4><div class="msg">The panel says when the new
       version is up.</div>`);
@@ -822,6 +843,8 @@ window.stopLive = function stopLive() {
         if (d.local && wasLocal && d.local !== wasLocal) {
           info = d;
           paint();
+          // con Refresh su OFF nessun tick andrebbe a riprendere il log
+          if (typeof load === "function") load();
           renderDone("", "Updated to " + esc(label(d.local_version, d.local_short)) +
             ". The log picks up again on its own.");
           return;

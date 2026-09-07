@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.14] - 2026-09-07
+- FIX durante l'aggiornamento nel box del log compariva l'HTML della pagina di
+  errore dell'ingress: ora la risposta viene verificata (stato e tipo) e le
+  ultime righe buone restano a schermo con la nota "aggiornamento in corso"
+- CHG a riavvio finito il log viene riletto subito, anche con Refresh su OFF
 ## [1.7.13] - 2026-09-07
 - FIX cambiare "Righe:" non ricaricava il log: con Refresh su OFF non succedeva
   proprio niente
