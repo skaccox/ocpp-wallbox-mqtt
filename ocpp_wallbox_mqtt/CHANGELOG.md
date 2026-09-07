@@ -1,4 +1,7 @@
 # Changelog
+## [1.7.15] - 2026-09-07
+- ADD "Check now" conferma di aver controllato con una riga verde per qualche
+  secondo: senza aggiornamenti il pannello restava identico e sembrava inerte
 ## [1.7.14] - 2026-09-07
 - FIX durante l'aggiornamento nel box del log compariva l'HTML della pagina di
   errore dell'ingress: ora la risposta viene verificata (stato e tipo) e le

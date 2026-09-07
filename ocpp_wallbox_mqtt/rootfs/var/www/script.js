@@ -665,6 +665,21 @@ window.stopLive = function stopLive() {
   let info = null;
   let busy = false;
 
+  // Un controllo che non trova niente ridisegna un pannello identico: senza
+  // una riga che lo dica non si capisce se il tasto ha fatto qualcosa.
+  let flash = "";
+  let flashTimer = null;
+
+  function setFlash(text, ms = 3500) {
+    flash = text;
+    clearTimeout(flashTimer);
+    if (!text) return;
+    flashTimer = setTimeout(() => {
+      flash = "";
+      if (isOpen()) renderPanel();
+    }, ms);
+  }
+
   const esc = s => String(s == null ? "" : s).replace(/[<>&"]/g,
     c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
@@ -752,6 +767,7 @@ window.stopLive = function stopLive() {
         ${d.local_subject ? `<div class="msg">“${esc(d.local_subject)}”
           ${shortDate(d.local_date)}</div>` : ""}
         ${extra}
+        ${flash ? `<div class="msg ok">${esc(flash)}</div>` : ""}
         <div class="actions">
           <button class="check" data-act="check">Check now</button>
           <button data-act="close">Close</button>
@@ -783,6 +799,7 @@ window.stopLive = function stopLive() {
       ${d.remote_subject ? `<div class="msg">“${esc(d.remote_subject)}”
         ${shortDate(d.remote_date)}</div>` : ""}
       ${extra}
+      ${flash ? `<div class="msg ok">${esc(flash)}</div>` : ""}
       <div class="msg warn">Press <strong>UPDATE NOW</strong> to update.</div>
       <div class="actions">
         <button class="go" data-act="go">Update now</button>
@@ -804,6 +821,9 @@ window.stopLive = function stopLive() {
     try {
       info = await getVersion(true);
       paint();
+      setFlash(info.update_available
+        ? "✓ Checked just now."
+        : "✓ Checked just now — no new commits.");
       renderPanel();
     } catch (e) {
       renderDone("err", "Check failed: " + esc(e.message || e));

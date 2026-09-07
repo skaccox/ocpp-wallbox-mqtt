@@ -765,6 +765,7 @@ body.history-mode #status {
 }
 .updatePanel code{ color:#22c55e; }
 .updatePanel .msg{ margin-top:8px; color:var(--muted); line-height:1.4; }
+.updatePanel .msg.ok{ color:#22c55e; }
 .updatePanel .msg.warn{ color:#fbbf24; }
 .updatePanel .msg.err{ color:#fb7185; }
 
