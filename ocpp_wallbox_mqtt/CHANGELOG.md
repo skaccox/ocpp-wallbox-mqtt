@@ -1,4 +1,12 @@
 # Changelog
+## [1.7.18] - 2026-09-15
+- CHG /log legge solo la coda di ocpp.log invece dell'intero file a ogni
+  refresh: con un log da 10 MB erano 10 MB letti anche per 800 righe
+- CHG il tetto delle righe del log passa da 10000 a 30000 (input, client e
+  server: sono tre limiti separati)
+- ADD scorrere all'indietro nel log o iniziare una selezione mette Refresh su
+  OFF: durante un copia-incolla l'auto-refresh riscriveva il box e la selezione
+  saltava. Si riaccende dal menu a tendina
 ## [1.7.17] - 2026-09-07
 - FIX premendo "Check now" e subito dopo UPDATE NOW, il ridisegno differito del
   messaggio verde rimetteva a schermo il pannello con "Update now" mentre

@@ -62,10 +62,24 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
       return (bottom - scrollPos) <= px;
     }
 
+    // Scorrere all'indietro o selezionare vuol dire leggere o copiare: con
+    // l'auto-refresh acceso il box viene riscritto sotto le mani e la
+    // selezione salta. Si spegne davvero il menu a tendina, cosi' si vede
+    // perche' il log non scorre piu' e si riaccende quando si vuole.
+    function pauseRefresh() {
+      if (elRefresh.value === "0") return;
+      elRefresh.value = "0";
+      if (window.stopLive) window.stopLive();
+    }
+
     // Se l'utente scrolla su, disattiva il follow. Se torna giù, riattiva.
     window.addEventListener("scroll", () => {
       followBottom = isNearBottom();
+      if (!followBottom && window.currentMode === "live") pauseRefresh();
     }, { passive: true });
+
+    // Inizio di una selezione dentro il log (mouse o dito): stesso motivo
+    elLog.addEventListener("selectstart", pauseRefresh);
 
     // Quando l'utente interagisce con input, blocca follow
     ["focus", "input"].forEach(evt => {
@@ -74,10 +88,10 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
       elRefresh.addEventListener(evt, () => followBottom = false);
     });
 
-    // Righe da caricare: il tetto e' 10000 anche lato server (run.sh, /log?n=).
+    // Righe da caricare: il tetto e' 30000 anche lato server (run.sh, /log?n=).
     // Con normalize=true riscrive il campo, altrimenti resta a schermo un
     // valore piu' alto di quello che viene davvero chiesto.
-    const LINES_MIN = 50, LINES_MAX = 10000;
+    const LINES_MIN = 50, LINES_MAX = 30000;
     function linesValue(normalize) {
       let n = parseInt(elLines.value, 10);
       if (!isFinite(n)) n = 800;
@@ -87,7 +101,7 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     }
 
     // Solo su change (blur/invio): normalizzare su "input" romperebbe la
-    // digitazione, "1" di 10000 verrebbe subito riscritto a 50
+    // digitazione, "1" di 30000 verrebbe subito riscritto a 50
     // Rilegge subito col numero nuovo: con Refresh su OFF non ci sarebbe nessun
     // tick a farlo, e cambiare il valore non avrebbe alcun effetto visibile
     elLines.addEventListener("change", () => { linesValue(true); load(); });

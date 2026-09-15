@@ -1044,6 +1044,27 @@ def request_update(origin="manual"):
     return True, ""
 
 
+def tail_lines(path, n, chunk=262144, cap=64 * 1024 * 1024):
+    """Ultime n righe di un file, leggendo solo la coda.
+
+    ocpp.log arriva a 10 MB e prima veniva letto per intero a ogni refresh,
+    anche per 800 righe. Si legge all'indietro a blocchi finche' le righe non
+    bastano: la prima puo' essere troncata a meta', ma il blocco esce solo con
+    piu' di n a capo, quindi il taglio finale la lascia sempre fuori.
+    """
+    with open(path, "rb") as fh:
+        fh.seek(0, os.SEEK_END)
+        end = pos = fh.tell()
+        buf = b""
+        while pos > 0 and buf.count(b"\n") <= n and (end - pos) < cap:
+            step = min(chunk, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + buf
+
+    return buf.splitlines()[-n:]
+
+
 def wallbox_names(path):
     """Mappa sezione ini -> nome leggibile della wallbox.
 
@@ -1160,7 +1181,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/log":
             qs = parse_qs(u.query)
             n = int(qs.get("n", ["400"])[0])
-            n = max(50, min(10000, n))
+            n = max(50, min(30000, n))
 
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -1171,8 +1192,11 @@ class H(BaseHTTPRequestHandler):
                 self.wfile.write(f"Log non trovato: {LOG}\n".encode())
                 return
 
-            with open(LOG, "rb") as f:
-                data = f.read().splitlines()[-n:]
+            try:
+                data = tail_lines(LOG, n)
+            except OSError as e:
+                self.wfile.write(("Log non leggibile: %s\n" % e).encode())
+                return
             self.wfile.write(b"\n".join(data) + b"\n")
             return
 
