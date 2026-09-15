@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.19] - 2026-09-15
+- ADD il Refresh messo su OFF dallo scroll o da una selezione torna da solo al
+  valore di prima quando si e' di nuovo in fondo al log e non c'e' piu' niente
+  selezionato. Un OFF scelto a mano resta OFF
 ## [1.7.18] - 2026-09-15
 - CHG /log legge solo la coda di ocpp.log invece dell'intero file a ogni
   refresh: con un log da 10 MB erano 10 MB letti anche per 800 righe

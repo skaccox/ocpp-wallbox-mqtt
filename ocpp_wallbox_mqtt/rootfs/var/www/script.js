@@ -65,21 +65,56 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     // Scorrere all'indietro o selezionare vuol dire leggere o copiare: con
     // l'auto-refresh acceso il box viene riscritto sotto le mani e la
     // selezione salta. Si spegne davvero il menu a tendina, cosi' si vede
-    // perche' il log non scorre piu' e si riaccende quando si vuole.
+    // perche' il log non scorre piu'.
+    //
+    // Qui si ricorda ogni volta l'intervallo da rimettere: se resta null vuol
+    // dire che su OFF ce l'ha messo l'utente, e allora non si tocca.
+    let pausedInterval = null;
+
     function pauseRefresh() {
       if (elRefresh.value === "0") return;
+      pausedInterval = elRefresh.value;
       elRefresh.value = "0";
       if (window.stopLive) window.stopLive();
+    }
+
+    // Selezione viva dentro al log: una copia in corso, non si tocca niente
+    function selectingInLog() {
+      const sel = window.getSelection && window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+      const node = sel.anchorNode;
+      if (!node) return false;
+      return elLog.contains(node.nodeType === 1 ? node : node.parentNode);
+    }
+
+    // Si riprende solo con tutte e due: di nuovo in fondo E niente selezionato.
+    // Con una sola delle due si ricomincerebbe a riscrivere il box mentre si
+    // sta ancora leggendo a meta' log, o con la selezione ancora sotto le dita.
+    function resumeRefresh() {
+      if (pausedInterval === null) return;
+      if (window.currentMode !== "live") return;
+      if (!isNearBottom() || selectingInLog()) return;
+
+      elRefresh.value = pausedInterval;
+      pausedInterval = null;
+      followBottom = true;
+      if (window.startLive) window.startLive();
+      load();                      // riprende subito, senza aspettare il tick
     }
 
     // Se l'utente scrolla su, disattiva il follow. Se torna giù, riattiva.
     window.addEventListener("scroll", () => {
       followBottom = isNearBottom();
-      if (!followBottom && window.currentMode === "live") pauseRefresh();
+      if (window.currentMode !== "live") return;
+      if (followBottom) resumeRefresh(); else pauseRefresh();
     }, { passive: true });
 
     // Inizio di una selezione dentro il log (mouse o dito): stesso motivo
     elLog.addEventListener("selectstart", pauseRefresh);
+
+    // Selezione annullata (un click a vuoto, Esc, o la fine di un incolla):
+    // se nel frattempo si e' tornati in fondo, il log riparte
+    document.addEventListener("selectionchange", resumeRefresh);
 
     // Quando l'utente interagisce con input, blocca follow
     ["focus", "input"].forEach(evt => {
@@ -643,7 +678,10 @@ window.stopLive = function stopLive() {
     elFilter.addEventListener("change", () => { load(); });
 
 
-    elRefresh.addEventListener("change",  window.startLive);
+    elRefresh.addEventListener("change", () => {
+      pausedInterval = null;      // scelta esplicita: vince sulla pausa
+      window.startLive();
+    });
 
     if (window.OCPP_DEFAULT_VIEW !== "graph") {
       load();
