@@ -129,7 +129,7 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     const LINES_MIN = 50, LINES_MAX = 30000;
     function linesValue(normalize) {
       let n = parseInt(elLines.value, 10);
-      if (!isFinite(n)) n = 800;
+      if (!isFinite(n)) n = 2000;
       n = Math.max(LINES_MIN, Math.min(LINES_MAX, n));
       if (normalize && String(n) !== elLines.value) elLines.value = String(n);
       return n;

@@ -1180,7 +1180,7 @@ class H(BaseHTTPRequestHandler):
 
         if u.path == "/log":
             qs = parse_qs(u.query)
-            n = int(qs.get("n", ["400"])[0])
+            n = int(qs.get("n", ["2000"])[0])
             n = max(50, min(30000, n))
 
             self.send_response(200)

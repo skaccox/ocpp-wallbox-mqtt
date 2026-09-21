@@ -1,4 +1,7 @@
 # Changelog
+## [1.7.20] - 2026-09-21
+- CHG le righe del log partono da 2000 invece che da 800 (campo, ripiego del
+  client e default di /log, che erano tre numeri diversi)
 ## [1.7.19] - 2026-09-15
 - ADD il Refresh messo su OFF dallo scroll o da una selezione torna da solo al
   valore di prima quando si e' di nuovo in fondo al log e non c'e' piu' niente
