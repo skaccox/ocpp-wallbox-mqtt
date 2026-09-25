@@ -1295,7 +1295,13 @@ function perWallboxDatasets(charge){
   return plots.map((p, i) => ({
     label: wbLabel(p.wb),
     data: p.power,
-    order: 2,
+
+    // Sopra a tutto (Chart.js disegna per ultimo l'order piu' basso): con una
+    // sola wallbox che carica la sua curva coincide con "EV Power", e a parita'
+    // di order vinceva quella - riempita e piu' spessa - lasciando il
+    // tratteggio colorato invisibile sotto. Il tooltip diceva viola, il grafico
+    // mostrava verde.
+    order: 0,
     tension: 0.2,
     yAxisID: "yPower",
     parsing: false,

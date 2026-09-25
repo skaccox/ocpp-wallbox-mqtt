@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.21] - 2026-09-25
+- FIX nel grafico giornaliero le linee per-wallbox finivano sotto la curva
+  verde del totale: il tooltip mostrava il colore giusto (garage viola) ma a
+  schermo si vedeva solo il verde. Ora sono disegnate sopra
 ## [1.7.20] - 2026-09-21
 - CHG le righe del log partono da 2000 invece che da 800 (campo, ripiego del
   client e default di /log, che erano tre numeri diversi)
