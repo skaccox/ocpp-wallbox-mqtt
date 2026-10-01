@@ -1,4 +1,6 @@
 # Changelog
+## [1.7.28] - 2026-10-01
+- CHG le righe per wallbox su mobile passano da 8.5px a 9.5px
 ## [1.7.27] - 2026-10-01
 - FIX su mobile le righe per wallbox restavano a 12px: la regola stava prima di
   quella base e a parita' di specificita' perdeva. Spostata dopo, con selettore

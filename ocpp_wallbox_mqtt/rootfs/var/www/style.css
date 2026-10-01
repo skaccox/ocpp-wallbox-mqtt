@@ -838,7 +838,7 @@ body.history-mode #status {
      la regola base, altrimenti a parita' di specificita' vince quella e qui
      non cambia niente. */
   .historyStats .wbSplit{
-    font-size: 8.5px;
+    font-size: 9.5px;
     line-height: 1.2;
   }
 
