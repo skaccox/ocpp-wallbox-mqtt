@@ -597,7 +597,7 @@ function setStatWithSplit(id, text, parts){
 function setChargedStat(totKwh, byWb){
   setStatWithSplit("statCharged",
     (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) + " kWh" : "—",
-    wbBreakdownParts(byWb, ""));
+    wbBreakdownParts(byWb));
 }
 
 // "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
@@ -621,7 +621,7 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
   const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
 
   setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) + " kWh" : "—",
-                   wbBreakdownParts(pvByWb, ""));
+                   wbBreakdownParts(pvByWb));
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }

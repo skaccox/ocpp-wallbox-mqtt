@@ -411,8 +411,12 @@ body.history-mode #status {
 @media (max-width:600px){
   .desktopOnly{ display:none !important; }
 
-  /* in cima lo spazio e' poco: qui restano piccole */
-  .wbSplit{ font-size: 11px; }
+  /* in cima lo spazio e' poco e con l'unita' di misura le righe si allungano:
+     qui vanno parecchio piu' piccole del resto della barra */
+  .wbSplit{
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
 
   #chartWrap {
     top: calc(var(--header-h) - 4px) !important;

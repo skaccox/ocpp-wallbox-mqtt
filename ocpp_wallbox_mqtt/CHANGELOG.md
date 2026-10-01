@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.24] - 2026-10-01
+- CHG le voci per wallbox portano l'unita' di misura ("Giardino 14.98 kWh"),
+  come il valore sopra
+- CHG su mobile quelle righe scendono a 9.5px: con l'unita' si allungano e in
+  cima lo spazio e' poco
 ## [1.7.23] - 2026-10-01
 - FIX i totali di sessione leggevano l'ultimo campione dei contatori col 10/11,
   ma ai confini il file porta la riga di apertura della sessione dopo (kWh gia'
