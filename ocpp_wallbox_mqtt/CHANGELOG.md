@@ -1,4 +1,9 @@
 # Changelog
+## [1.7.29] - 2026-10-01
+- CHG anche il simbolo "%" sale accanto all'icona: valore e righe per wallbox
+  restano nudi ("98", "Giardino 98") e il titolo si accorcia a "PV"
+- CHG su mobile la barra statistiche stringe: padding orizzontale 6px -> 4px,
+  spazio fra le voci 8px -> 6px, unita' accanto all'icona a 8.5px
 ## [1.7.28] - 2026-10-01
 - CHG le righe per wallbox su mobile passano da 8.5px a 9.5px
 ## [1.7.27] - 2026-10-01

@@ -610,7 +610,7 @@ function wbPvPctParts(pvByWb, chargeByWb){
   for (const wb of keys){
     const tot = (chargeByWb || {})[wb] || 0;
     if (!(tot > 0)) continue;
-    out.push(`${wbShort(wb)} ${Math.min(100, (pvByWb[wb] || 0) / tot * 100).toFixed(0)}%`);
+    out.push(`${wbShort(wb)} ${Math.min(100, (pvByWb[wb] || 0) / tot * 100).toFixed(0)}`);
   }
   return out;
 }
@@ -622,7 +622,7 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
 
   setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) : "—",
                    wbBreakdownParts(pvByWb, ""));
-  setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
+  setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }
 
