@@ -32,7 +32,7 @@ Ideal for users who want a simple, self-hosted OCPP + MQTT bridge inside Home As
 The add-on configuration panel exposes only the **main parameters**, which are automatically written to:
 
 ```
-/config/ocpp-mqtt-perl-server/ocpp.ini
+<Home Assistant config>/ocpp-mqtt-perl-server/ocpp.ini
 ```
 
 These options cover the most common settings such as MQTT connection, grid limits, power management and basic behavior flags.

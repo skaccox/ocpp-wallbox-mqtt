@@ -180,7 +180,8 @@ Example: `home/pv` → the add-on reads `home/pv/power`
 ### 🧭 Code source
 
 The add-on does not bundle the OCPP server: it clones it into
-`/config/ocpp-mqtt-perl-server` at first start. Both the repository and the
+`ocpp-mqtt-perl-server/`, inside the Home Assistant configuration folder,
+at first start. Both the repository and the
 ref are options, so you can point the add-on at a fork or a specific branch.
 
 #### `code_repo`
@@ -430,7 +431,8 @@ You need to check profile configuration inside ocpp.ini
 
 ## ⭐ Tips
 
-After installing, go to /config/ocpp.ini and verify the configuration (the add-on write its settings here).
+After installing, open `ocpp-mqtt-perl-server/ocpp.ini` in the Home Assistant
+configuration folder and verify it (the add-on writes its settings there).
 
 Configure the wallbox to connect to the OCPP server with:
 

@@ -1,8 +1,18 @@
 #!/usr/bin/with-contenv bashio
 set -e
 
-APP_DIR="/config/ocpp-mqtt-perl-server"
-INI_FILE="/config/ocpp-mqtt-perl-server/ocpp.ini"
+# Il Supervisor monta la cartella di configurazione di Home Assistant su
+# /homeassistant (mappatura "homeassistant_config"); la vecchia mappatura
+# "config", ora deprecata, la metteva su /config. La cartella dell'host e' la
+# stessa: cambia solo il punto di mount, quindi i file restano dove sono. Si
+# usa quella che c'e', cosi' l'add-on gira anche su Supervisor piu' vecchi.
+HA_CONFIG="/homeassistant"
+if [ ! -d "${HA_CONFIG}" ]; then
+  HA_CONFIG="/config"
+fi
+
+APP_DIR="${HA_CONFIG}/ocpp-mqtt-perl-server"
+INI_FILE="${APP_DIR}/ocpp.ini"
 
 OCPP_VERBOSE="$(bashio::config 'ocpp_verbose')"
 # ---- Parametri UI ----

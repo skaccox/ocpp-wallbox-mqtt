@@ -1,4 +1,13 @@
 # Changelog
+## [1.7.30] - 2026-10-01
+- CHG le label della barra statistiche non hanno piu' i due punti
+- CHG "PV %" torna col simbolo sui valori ("98%", "Giardino 98%") e l'unita'
+  nella label: lo spazio recuperato lo consente
+- CHG mappatura "config" (deprecata) sostituita da "homeassistant_config", che
+  monta la stessa cartella su /homeassistant: run.sh ora ricava i percorsi dal
+  mount che trova, quindi i file restano dove sono e l'add-on gira anche su
+  Supervisor piu' vecchi
+- DEL architetture deprecate armv7 e i386: restano aarch64 e amd64
 ## [1.7.29] - 2026-10-01
 - CHG anche il simbolo "%" sale accanto all'icona: valore e righe per wallbox
   restano nudi ("98", "Giardino 98") e il titolo si accorcia a "PV"
