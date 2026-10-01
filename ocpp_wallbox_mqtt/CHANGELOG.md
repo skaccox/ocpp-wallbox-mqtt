@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.27] - 2026-10-01
+- FIX su mobile le righe per wallbox restavano a 12px: la regola stava prima di
+  quella base e a parita' di specificita' perdeva. Spostata dopo, con selettore
+  piu' forte, e portata a 8.5px
 ## [1.7.26] - 2026-10-01
 - FIX l'unita' di misura era finita nel titolo ("EV Max (kW)"), allungandolo:
   ora sta accanto all'icona, sulla riga sopra, che era vuota

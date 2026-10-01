@@ -424,13 +424,6 @@ body.history-mode #status {
 @media (max-width:600px){
   .desktopOnly{ display:none !important; }
 
-  /* in cima lo spazio e' poco e con l'unita' di misura le righe si allungano:
-     qui vanno parecchio piu' piccole del resto della barra */
-  .wbSplit{
-    font-size: 9.5px;
-    line-height: 1.25;
-  }
-
   #chartWrap {
     top: calc(var(--header-h) - 4px) !important;
   }
@@ -840,6 +833,15 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
+  /* In cima lo spazio e' poco: le righe per wallbox vanno molto piu' piccole
+     del resto della barra. Selettore con .historyStats davanti e blocco dopo
+     la regola base, altrimenti a parita' di specificita' vince quella e qui
+     non cambia niente. */
+  .historyStats .wbSplit{
+    font-size: 8.5px;
+    line-height: 1.2;
+  }
+
   /* ancorato al chip il pannello sfora a destra e fa comparire lo scroll
      orizzontale: centrato sotto l'header, largo quanto lo schermo meno un
      margine */
