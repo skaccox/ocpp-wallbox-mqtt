@@ -1,4 +1,7 @@
 # Changelog
+## [1.7.26] - 2026-10-01
+- FIX l'unita' di misura era finita nel titolo ("EV Max (kW)"), allungandolo:
+  ora sta accanto all'icona, sulla riga sopra, che era vuota
 ## [1.7.25] - 2026-10-01
 - CHG l'unita' di misura sta nell'etichetta accanto all'icona ("EV Max (kW)",
   "PV Charged (kWh)"): i valori e le righe per wallbox restano nudi, e in
