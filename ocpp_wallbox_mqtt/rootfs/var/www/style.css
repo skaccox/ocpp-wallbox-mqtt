@@ -411,6 +411,14 @@ body.history-mode #status {
 @media (max-width:600px){
   .desktopOnly{ display:none !important; }
 
+  /* le due wallbox una sotto l'altra: affiancate non ci stanno */
+  .wbSplit{
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .wbSplit .wbPart + .wbPart::before{ content: none; margin: 0; }
+
   #chartWrap {
     top: calc(var(--header-h) - 4px) !important;
   }
@@ -667,10 +675,30 @@ body.history-mode #status {
 
 /* scomposizione per wallbox accanto a "EV Total" (solo con piu' di una wallbox) */
 .wbSplit {
+  display: inline-flex;
+  gap: 8px;
   opacity: .65;
   font-size: .85em;
   font-weight: 400;
   margin-left: 2px;
+}
+
+/* il separatore e' del CSS: cosi' su mobile sparisce insieme all'affiancamento */
+.wbSplit .wbPart + .wbPart::before {
+  content: "·";
+  margin-right: 8px;
+  opacity: .6;
+}
+
+#wbFilter {
+  width: 96px;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+#wbFilter.active {
+  outline: 2px solid #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.25);
 }
 
 /* ===== Versione del server perl (accanto all'ora) + pannello update ===== */

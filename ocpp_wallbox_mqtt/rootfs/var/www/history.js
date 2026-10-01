@@ -1,6 +1,10 @@
 let historyChart = null;
 let currentDate = new Date();
 let viewMode = "day";
+
+// "both" oppure l'id di sezione di una wallbox: con il filtro attivo il
+// grafico mostra solo quella. Le statistiche restano quelle del periodo.
+let wbFilter = "both";
 let chartTypeMode = "bars";
 const chartTypeDefaults = { day: "bars", week: "bars", month: "lines" };
 
@@ -23,6 +27,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const today = new Date();
   datePicker.max = today.toISOString().split("T")[0];
+
+  // Filtro wallbox: esiste solo se l'impianto ne ha piu' di una, altrimenti
+  // non c'e' niente da scegliere. Di default sono mostrate entrambe.
+  (function setupWbFilter(){
+    const sel = document.getElementById("wbFilter");
+    if (!sel) return;
+
+    const keys = Object.keys(window.OCPP_WALLBOX_NAMES || {}).sort();
+    if (keys.length < 2) { sel.style.display = "none"; return; }
+
+    sel.innerHTML = "";
+    const both = document.createElement("option");
+    both.value = "both";
+    both.textContent = "BOTH";
+    sel.appendChild(both);
+
+    for (const wb of keys) {
+      const o = document.createElement("option");
+      o.value = wb;
+      o.textContent = wbShort(wb).toUpperCase();
+      sel.appendChild(o);
+    }
+
+    sel.value = wbFilter;
+    sel.style.display = "";
+    sel.addEventListener("change", () => {
+      wbFilter = sel.value;
+      sel.classList.toggle("active", wbFilter !== "both");
+      loadCurrentView();
+    });
+  })();
 
 
 function loadCurrentView() {
@@ -367,7 +402,8 @@ function wallboxesInTotals(totals){
 // wallbox, altrimenti una per wallbox nello stesso stack (anche se nel periodo
 // ne ha caricata una sola: e' proprio il caso in cui serve sapere quale).
 function evBarDatasets(totals){
-  const wbs = wallboxesInTotals(totals);
+  const wbs = wallboxesInTotals(totals)
+    .filter(wb => wbFilter === "both" || wb === wbFilter);
 
   if (!wbs.length || !wbIdentifyNeeded(wbs.length)) {
     return [{
@@ -535,10 +571,10 @@ function setChargedStat(totKwh, byWb){
   const host = el.parentElement;
   if (!host) return;
 
-  const breakdown = wbBreakdownText(byWb, "");
+  const parts = wbBreakdownParts(byWb, "");
   let sub = host.querySelector(".wbSplit");
 
-  if (!breakdown) {
+  if (!parts.length) {
     if (sub) sub.remove();
     return;
   }
@@ -547,7 +583,16 @@ function setChargedStat(totKwh, byWb){
     sub.className = "wbSplit";
     el.insertAdjacentElement("afterend", sub);
   }
-  sub.textContent = ` (${breakdown})`;
+
+  // Un elemento per wallbox invece di una stringa unica fra parentesi: il
+  // separatore lo mette il CSS, che su mobile li impila invece di affiancarli.
+  sub.textContent = "";
+  for (const p of parts) {
+    const one = document.createElement("span");
+    one.className = "wbPart";
+    one.textContent = p;
+    sub.appendChild(one);
+  }
 }
 
 function updatePeriodStats(totals) {
@@ -956,10 +1001,14 @@ function mergeKwhByWallbox(list){
 // "EV1 2.00 · EV2 5.00" - vuota su un impianto a una wallbox: il totale
 // basta. Su un impianto multiplo la mostra anche con una sola wallbox nei dati:
 // e' l'unico posto che dice quale ha caricato quel giorno.
-function wbBreakdownText(byWb, unit = " kWh"){
+function wbBreakdownParts(byWb, unit = " kWh"){
   const keys = Object.keys(byWb || {}).sort();
-  if (!keys.length || !wbIdentifyNeeded(keys.length)) return "";
-  return keys.map(wb => `${wbShort(wb)} ${(byWb[wb] || 0).toFixed(2)}${unit}`).join(" · ");
+  if (!keys.length || !wbIdentifyNeeded(keys.length)) return [];
+  return keys.map(wb => `${wbShort(wb)} ${(byWb[wb] || 0).toFixed(2)}${unit}`);
+}
+
+function wbBreakdownText(byWb, unit = " kWh"){
+  return wbBreakdownParts(byWb, unit).join(" · ");
 }
 
 // Nome leggibile di una wallbox. Priorita':
@@ -970,10 +1019,17 @@ function wbBreakdownText(byWb, unit = " kWh"){
 function wbShort(wb){
   const named = (typeof window !== "undefined" && window.OCPP_WALLBOX_NAMES) || {};
   const n = named[wb];
-  if (typeof n === "string" && n.trim()) return n.trim();
+  if (typeof n === "string" && n.trim()) return ucfirst(n);
 
   const m = /^wallbox0*(\d+)$/i.exec(wb || "");
-  return m ? `EV${m[1]}` : (wb || "");
+  return m ? `EV${m[1]}` : ucfirst(wb);
+}
+
+// I nomi arrivano da ocpp.ini scritto a mano: "giardino" e "Giardino" devono
+// comparire allo stesso modo in legenda, tooltip e statistiche.
+function ucfirst(s){
+  const t = String(s == null ? "" : s).trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
 }
 
 // Quante wallbox ha l'IMPIANTO, non quante compaiono nei dati caricati.
@@ -1289,11 +1345,16 @@ function wbLabel(wb){
 
 // Con una sola wallbox non aggiunge niente: la curva totale è già quella.
 function perWallboxDatasets(charge){
+  // Con il filtro su una sola wallbox la curva principale e' gia' la sua:
+  // una seconda linea tratteggiata identica sarebbe solo rumore.
+  if (wbFilter !== "both") return [];
+
   const plots = charge?.wbPlot || [];
   if (plots.length < 2) return [];
 
   return plots.map((p, i) => ({
     label: wbLabel(p.wb),
+    wbKey: p.wb,          // il tooltip le riconosce e le accorpa nella riga EV
     data: p.power,
 
     // Sopra a tutto (Chart.js disegna per ultimo l'order piu' basso): con una
@@ -1320,13 +1381,27 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
 
   if (historyChart) historyChart.destroy();
 
+  // Quale curva "EV" ha senso mostrare:
+  //  - filtro su una wallbox  -> la sua, col suo nome
+  //  - una sola wallbox nei dati del giorno -> idem, "EV Power" sarebbe un
+  //    totale di una cosa sola
+  //  - altrimenti il totale, con la scomposizione nel tooltip
+  const wbsInData = charge?.wallboxes || [];
+  const picked = (wbFilter !== "both")
+    ? (charge?.wbPlot || []).find(p => p.wb === wbFilter)
+    : null;
+  const soloWb = picked ? picked.wb : (wbsInData.length === 1 ? wbsInData[0] : null);
+
+  const evData  = picked ? picked.power : charge.evPower;
+  const evLabel = soloWb ? `${wbShort(soloWb)} Power (kW)` : "EV Power (kW)";
+
   historyChart = new Chart(ctx, {
     type: "line",
     data: {
       datasets: [
         {
-          label: "EV Power (kW)",
-          data: charge.evPower,
+          label: evLabel,
+          data: evData,
           order: 2,
           borderWidth: 2,
           tension: 0.2,
@@ -1393,7 +1468,31 @@ function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
           }
         },
         tooltip: {
+          // Le righe per-wallbox confluiscono in quella EV: tre voci per lo
+          // stesso istante (EV, Garage, Giardino) erano solo rumore.
+          filter: (item) => !item.dataset.wbKey,
+
           callbacks: {
+            label: (item) => {
+              const y = item.parsed?.y;
+              const base = `${item.dataset.label}: ${
+                (typeof y === "number" && isFinite(y)) ? y.toFixed(2) : "—"}`;
+
+              if (item.dataset.label !== evLabel) return base;
+
+              // "EV Power (kW): 7.20 (Garage 3.20 · Giardino 4.00)".
+              // Le serie sono ricampionate sulla stessa griglia, quindi
+              // dataIndex vale per tutte.
+              const parts = [];
+              for (const ds of item.chart.data.datasets) {
+                if (!ds.wbKey) continue;
+                const v = ds.data?.[item.dataIndex]?.y;
+                if (typeof v !== "number" || !isFinite(v)) continue;
+                parts.push(`${wbShort(ds.wbKey)} ${v.toFixed(2)}`);
+              }
+              return parts.length ? `${base} (${parts.join(" · ")})` : base;
+            },
+
             // Riga extra nel tooltip: Sessione #, durata, kWh
             afterBody: (items) => {
               const ts = items?.[0]?.parsed?.x;

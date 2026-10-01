@@ -1,4 +1,14 @@
 # Changelog
+## [1.7.22] - 2026-10-01
+- CHG nel tooltip del grafico giornaliero resta la sola riga EV, con i valori
+  delle due wallbox fra parentesi: tre voci per lo stesso istante erano rumore
+- CHG con una sola wallbox nei dati la curva si chiama col suo nome ("Garage
+  Power") invece di "EV Power", che sarebbe il totale di una cosa sola
+- ADD filtro wallbox in GRAPH (BOTH di default, compare solo con due wallbox):
+  scegliendone una, grafico e barre mostrano solo quella
+- CHG la scomposizione di "EV Total" non e' piu' fra parentesi e su mobile le
+  due wallbox vanno una sotto l'altra
+- CHG il nome della wallbox e' sempre con l'iniziale maiuscola, ovunque compaia
 ## [1.7.21] - 2026-09-25
 - FIX nel grafico giornaliero le linee per-wallbox finivano sotto la curva
   verde del totale: il tooltip mostrava il colore giusto (garage viola) ma a
