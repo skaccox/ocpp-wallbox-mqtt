@@ -1,4 +1,19 @@
 # Changelog
+## [1.7.23] - 2026-10-01
+- FIX i totali di sessione leggevano l'ultimo campione dei contatori col 10/11,
+  ma ai confini il file porta la riga di apertura della sessione dopo (kWh gia'
+  a zero) e quelle di chiusura (kWh azzerato, FV no). Sul 26/09 usciva
+  EV Total 0.54 kWh con PV Charged 14.70 e PV% 2703%: ora 14.98 kWh e 98%.
+  Si scarta quanto precede la ripartenza da zero e si prende il massimo
+- ADD scomposizione per wallbox anche su "PV Charged" (kWh) e "PV %", dove la
+  percentuale di ciascuna e' sul proprio caricato. Compare solo se il dato
+  viene dalle sessioni (col 11): con la stima per integrazione la rete e' una
+  sola e dividerla sarebbe inventato
+- CHG via il puntino fra le due wallbox: sono incolonnate e il separatore non
+  serve piu'
+- CHG su desktop le righe per wallbox passano a 12px (erano ~10px)
+- FIX passando a un giorno senza dati restavano a schermo le righe per wallbox
+  del giorno prima, sotto a un "—"
 ## [1.7.22] - 2026-10-01
 - CHG nel tooltip del grafico giornaliero resta la sola riga EV, con i valori
   delle due wallbox fra parentesi: tre voci per lo stesso istante erano rumore

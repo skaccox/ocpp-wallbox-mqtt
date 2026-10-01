@@ -411,13 +411,8 @@ body.history-mode #status {
 @media (max-width:600px){
   .desktopOnly{ display:none !important; }
 
-  /* le due wallbox una sotto l'altra: affiancate non ci stanno */
-  .wbSplit{
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-  }
-  .wbSplit .wbPart + .wbPart::before{ content: none; margin: 0; }
+  /* in cima lo spazio e' poco: qui restano piccole */
+  .wbSplit{ font-size: 11px; }
 
   #chartWrap {
     top: calc(var(--header-h) - 4px) !important;
@@ -674,20 +669,17 @@ body.history-mode #status {
 }
 
 /* scomposizione per wallbox accanto a "EV Total" (solo con piu' di una wallbox) */
+/* una riga per wallbox, incolonnate sotto al valore: niente separatore, ci
+   pensa l'andare a capo */
 .wbSplit {
   display: inline-flex;
-  gap: 8px;
-  opacity: .65;
-  font-size: .85em;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  opacity: .8;
+  font-size: 12px;
   font-weight: 400;
   margin-left: 2px;
-}
-
-/* il separatore e' del CSS: cosi' su mobile sparisce insieme all'affiancamento */
-.wbSplit .wbPart + .wbPart::before {
-  content: "·";
-  margin-right: 8px;
-  opacity: .6;
 }
 
 #wbFilter {

@@ -337,6 +337,7 @@ async function computeDailyTotals(d) {
     return { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
              sessionCount: sessionsMeta.length,
              chargeByWb: kwhByWallbox(sessionsMeta),
+             pvChargedByWb: pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null,
              hasData: true };
   } catch {
     return { chargeKwh: 0, solarKwh: 0, importKwh: 0, exportKwh: 0, pvChargedKwh: 0, evMaxKw: 0, pvMaxKw: 0, hasData: false };
@@ -560,21 +561,21 @@ function drawBarChart(labels, totals, title) {
 // Scrive il totale caricato e, con piu' di una wallbox, la scomposizione
 // accanto al numero: "7.00 kWh (EV1 2.00 · EV2 5.00)".
 // Con una sola wallbox il riquadro resta identico a prima.
-function setChargedStat(totKwh, byWb){
-  const el = document.getElementById("statCharged");
+// Valore della statistica e, sotto, una riga per wallbox. Gli elementi sono
+// fratelli dentro lo stesso contenitore: un blocco romperebbe il layout
+// flex/nowrap di .historyStats.
+function setStatWithSplit(id, text, parts){
+  const el = document.getElementById(id);
   if (!el) return;
 
-  el.textContent = (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) + " kWh" : "—";
+  el.textContent = text;
 
-  // span fratello dentro lo stesso contenitore inline: un blocco romperebbe
-  // il layout flex/nowrap di .historyStats
   const host = el.parentElement;
   if (!host) return;
 
-  const parts = wbBreakdownParts(byWb, "");
   let sub = host.querySelector(".wbSplit");
 
-  if (!parts.length) {
+  if (!parts || !parts.length) {
     if (sub) sub.remove();
     return;
   }
@@ -584,8 +585,6 @@ function setChargedStat(totKwh, byWb){
     el.insertAdjacentElement("afterend", sub);
   }
 
-  // Un elemento per wallbox invece di una stringa unica fra parentesi: il
-  // separatore lo mette il CSS, che su mobile li impila invece di affiancarli.
   sub.textContent = "";
   for (const p of parts) {
     const one = document.createElement("span");
@@ -593,6 +592,38 @@ function setChargedStat(totKwh, byWb){
     one.textContent = p;
     sub.appendChild(one);
   }
+}
+
+function setChargedStat(totKwh, byWb){
+  setStatWithSplit("statCharged",
+    (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) + " kWh" : "—",
+    wbBreakdownParts(byWb, ""));
+}
+
+// "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
+// altrimenti due percentuali che non si sommano a quella grande confondono.
+function wbPvPctParts(pvByWb, chargeByWb){
+  const keys = Object.keys(pvByWb || {}).sort();
+  if (!keys.length || !wbIdentifyNeeded(keys.length)) return [];
+
+  const out = [];
+  for (const wb of keys){
+    const tot = (chargeByWb || {})[wb] || 0;
+    if (!(tot > 0)) continue;
+    out.push(`${wbShort(wb)} ${Math.min(100, (pvByWb[wb] || 0) / tot * 100).toFixed(0)}%`);
+  }
+  return out;
+}
+
+// pvByWb null = il dato per-wallbox non c'e' (file senza col 11, o giorni misti
+// nel periodo): si mostra solo il totale, senza inventare una scomposizione.
+function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
+  const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
+
+  setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) + " kWh" : "—",
+                   wbBreakdownParts(pvByWb, ""));
+  setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
+                   wbPvPctParts(pvByWb, chargeByWb));
 }
 
 function updatePeriodStats(totals) {
@@ -612,9 +643,13 @@ function updatePeriodStats(totals) {
   const byWb      = mergeKwhByWallbox(totals.map(t => t.chargeByWb));
   setChargedStat(totCharge, byWb);
   const totPvCharged = sum("pvChargedKwh");
-  document.getElementById("statPvCharged").textContent = totPvCharged > 0 ? totPvCharged.toFixed(2) + " kWh" : "—";
-  const pctPv = (totCharge > 0 && totPvCharged > 0) ? Math.min(100, totPvCharged / totCharge * 100) : 0;
-  document.getElementById("statPvChargedPct").textContent = pctPv > 0 ? pctPv.toFixed(0) + "%" : "—";
+
+  // Basta un giorno del periodo senza il dato per wallbox e la scomposizione
+  // salta: sommare solo i giorni che ce l'hanno darebbe percentuali false.
+  const pvSplitOk = totals.every(t => !t.hasData || t.pvChargedByWb);
+  setPvStats(totPvCharged, totCharge,
+             pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null,
+             byWb);
   document.getElementById("statSessions").textContent = sessions || "—";
   document.getElementById("statPvMax").textContent    = pvMax ? pvMax.toFixed(2) + " kW" : "—";
   document.getElementById("statSolar").textContent    = sum("solarKwh").toFixed(2) + " kWh";
@@ -655,11 +690,11 @@ function buildSessionsMeta(sessions, charge) {
     const w = byWb?.get?.(s.wb);
     let kwh = null, pvKwh = null;
 
-    // Formato nuovo: session_kwh (col 10) e' running, quindi l'ultimo valore
-    // dentro la finestra E' il totale di sessione. Nessun delta di registri.
+    // Formato nuovo: session_kwh (col 10) e session_pv_kwh (col 11) sono
+    // contatori running. Non si legge l'ultimo campione: vedi sessionTotal.
     if (w?.sessionKwh?.length) {
-      kwh   = lastInWindow(w.sessionKwh,   s.start, s.end);
-      pvKwh = lastInWindow(w.sessionPvKwh, s.start, s.end);
+      kwh   = sessionTotal(w.sessionKwh,   s.start, s.end);
+      pvKwh = sessionTotal(w.sessionPvKwh, s.start, s.end);
     }
 
     // Legacy: delta del registro assoluto, ma della SOLA wallbox di questa
@@ -786,6 +821,10 @@ function resampleHold(series, t0, t1, stepMs){
 
 function showNoDataMessage(){
   document.getElementById("historyError").style.display = "block";
+
+  // le righe per wallbox sono elementi a parte: senza questo resterebbero
+  // quelle del giorno precedente sotto a un "—"
+  for (const s of document.querySelectorAll("#historyStats .wbSplit")) s.remove();
 
   document.getElementById("statEv").textContent = "—";
   document.getElementById("statCharged").textContent = "—";
@@ -940,11 +979,11 @@ if (pvFromFile != null) {
   }
   if (totalKwh > 0 && pvChargedKwh > totalKwh) pvChargedKwh = totalKwh;
 }
-document.getElementById("statPvCharged").textContent =
-  pvChargedKwh > 0 ? pvChargedKwh.toFixed(2)+" kWh" : "—";
-const pvPct = (totalKwh > 0 && pvChargedKwh > 0) ? (pvChargedKwh / totalKwh * 100) : 0;
-document.getElementById("statPvChargedPct").textContent =
-  pvPct > 0 ? pvPct.toFixed(0)+"%" : "—";
+// la scomposizione del FV ha senso solo se il valore viene dalle sessioni:
+// la stima per integrazione usa la rete, che e' una sola per tutte
+setPvStats(pvChargedKwh, totalKwh,
+           pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null,
+           kwhByWallbox(sessionsMeta));
 
 document.getElementById("statPvMax").textContent =
   pvMM ? pvMM.max.toFixed(2)+" kW" : "—";
@@ -1066,6 +1105,19 @@ function sumSessionPv(sessionsMeta){
     tot += s.pvKwh;
   }
   return tot;
+}
+
+// Stessa regola di sumSessionPv: o tutte le sessioni hanno la col 11, o niente
+// scomposizione. Una somma parziale darebbe percentuali false.
+function pvKwhByWallbox(sessionsMeta){
+  if (!sessionsMeta?.length) return null;
+  const out = {};
+  for (const s of sessionsMeta){
+    if (typeof s.pvKwh !== "number" || !isFinite(s.pvKwh)) return null;
+    if (!s.wb) continue;
+    out[s.wb] = (out[s.wb] || 0) + s.pvKwh;
+  }
+  return out;
 }
 
 function totalKwhFromSessions(sessionsMeta){
@@ -1213,6 +1265,36 @@ function sumSeriesHold(list){
 
 // Ultimo valore di una serie dentro [t0,t1]: serve per session_kwh, che è
 // running, quindi l'ultimo campione della sessione È il totale di sessione.
+// Totale di un contatore di sessione dentro [t0,t1].
+//
+// I contatori salgono da zero, ma ai confini di sessione il file porta due
+// sporcizie, viste sul 26/09 dove fine e inizio cadono nello stesso secondo:
+//
+//   17:25:49  kWh=14.439  FV=14.277   Transaction.End           <- sessione 1
+//   17:25:49  kWh=0       FV=14.277   Transaction.Begin-Start   <- sessione 2, FV vecchio
+//   17:49:05  kWh=0       FV=0.427    Transaction.End-Stop      <- kWh azzerato, FV no
+//
+// L'ultimo campione sbaglia (prende lo zero della riga di apertura), e il solo
+// massimo pure (prende il residuo in testa). Si scarta quindi tutto cio' che
+// precede la ripartenza da zero, e del resto si prende il massimo.
+function sessionTotal(series, t0, t1){
+  if (!series?.length) return null;
+
+  const win = [];
+  for (const p of series){
+    if (p.x < t0) continue;
+    if (p.x > t1) break;
+    if (typeof p.y === "number" && isFinite(p.y)) win.push(p.y);
+  }
+  if (!win.length) return null;
+
+  const zero = win.indexOf(0);
+  const from = zero >= 0 ? zero : 0;   // nessuno zero: la sessione non riparte, si tiene tutto
+  let v = null;
+  for (let i = from; i < win.length; i++) if (v == null || win[i] > v) v = win[i];
+  return v;
+}
+
 function lastInWindow(series, t0, t1){
   if (!series?.length) return null;
   let v = null;
