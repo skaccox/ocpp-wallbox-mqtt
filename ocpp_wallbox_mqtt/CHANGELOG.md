@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.25] - 2026-10-01
+- CHG l'unita' di misura sta nell'etichetta accanto all'icona ("EV Max (kW)",
+  "PV Charged (kWh)"): i valori e le righe per wallbox restano nudi, e in
+  colonna ci stanno molto meglio. "PV %" resta col simbolo sul valore
 ## [1.7.24] - 2026-10-01
 - CHG le voci per wallbox portano l'unita' di misura ("Giardino 14.98 kWh"),
   come il valore sopra

@@ -596,8 +596,8 @@ function setStatWithSplit(id, text, parts){
 
 function setChargedStat(totKwh, byWb){
   setStatWithSplit("statCharged",
-    (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) + " kWh" : "—",
-    wbBreakdownParts(byWb));
+    (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) : "—",
+    wbBreakdownParts(byWb, ""));
 }
 
 // "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
@@ -620,8 +620,8 @@ function wbPvPctParts(pvByWb, chargeByWb){
 function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
   const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
 
-  setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) + " kWh" : "—",
-                   wbBreakdownParts(pvByWb));
+  setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) : "—",
+                   wbBreakdownParts(pvByWb, ""));
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }
@@ -638,7 +638,7 @@ function updatePeriodStats(totals) {
   const pvMax = maxVal("pvMaxKw");
   const sessions = sum("sessionCount");
 
-  document.getElementById("statEv").textContent       = evMax ? evMax.toFixed(2) + " kW" : "—";
+  document.getElementById("statEv").textContent       = evMax ? evMax.toFixed(2) : "—";
   const totCharge = sum("chargeKwh");
   const byWb      = mergeKwhByWallbox(totals.map(t => t.chargeByWb));
   setChargedStat(totCharge, byWb);
@@ -651,10 +651,10 @@ function updatePeriodStats(totals) {
              pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null,
              byWb);
   document.getElementById("statSessions").textContent = sessions || "—";
-  document.getElementById("statPvMax").textContent    = pvMax ? pvMax.toFixed(2) + " kW" : "—";
-  document.getElementById("statSolar").textContent    = sum("solarKwh").toFixed(2) + " kWh";
-  document.getElementById("statGridImport").textContent = sum("importKwh").toFixed(2) + " kWh";
-  document.getElementById("statGridExport").textContent = sum("exportKwh").toFixed(2) + " kWh";
+  document.getElementById("statPvMax").textContent    = pvMax ? pvMax.toFixed(2) : "—";
+  document.getElementById("statSolar").textContent    = sum("solarKwh").toFixed(2);
+  document.getElementById("statGridImport").textContent = sum("importKwh").toFixed(2);
+  document.getElementById("statGridExport").textContent = sum("exportKwh").toFixed(2);
 }
 
 function updateTodayHighlight() {
@@ -951,7 +951,7 @@ const solarTxt  = (solarResp && solarResp.ok) ? await solarResp.text() : "";
 /*document.getElementById("statEv").textContent =
   evMM ? `${evMM.min.toFixed(2)} / ${evMM.max.toFixed(2)} kW` : "—";*/
 document.getElementById("statEv").textContent =
-  evMM ? `${evMM.max.toFixed(2)} kW` : "—";
+  evMM ? evMM.max.toFixed(2) : "—";
 
 const totalKwh = sessionsMeta.reduce((acc,s)=>acc+(s.kwh||0),0);
 setChargedStat(totalKwh, kwhByWallbox(sessionsMeta));
@@ -986,7 +986,7 @@ setPvStats(pvChargedKwh, totalKwh,
            kwhByWallbox(sessionsMeta));
 
 document.getElementById("statPvMax").textContent =
-  pvMM ? pvMM.max.toFixed(2)+" kW" : "—";
+  pvMM ? pvMM.max.toFixed(2) : "—";
 
 // energia solare totale: integrazione trapezoidale (dati resampled a 30s)
 let solarKwh = 0;
@@ -995,7 +995,7 @@ for (let i = 1; i < solar.solarKw.length; i++) {
   solarKwh += (solar.solarKw[i].y + solar.solarKw[i-1].y) / 2 * dtH;
 }
 document.getElementById("statSolar").textContent =
-  solarKwh > 0 ? solarKwh.toFixed(2)+" kWh" : "—";
+  solarKwh > 0 ? solarKwh.toFixed(2) : "—";
 
 // grid export giornaliero: integra solo i valori negativi (negativo = immissione)
 let gridExportKwh = 0;
@@ -1007,9 +1007,9 @@ for (let i = 1; i < meter.gridKw.length; i++) {
   else gridImportKwh += avg * dtH;
 }
 document.getElementById("statGridExport").textContent =
-  gridExportKwh > 0 ? gridExportKwh.toFixed(2)+" kWh" : "—";
+  gridExportKwh > 0 ? gridExportKwh.toFixed(2) : "—";
 document.getElementById("statGridImport").textContent =
-  gridImportKwh > 0 ? gridImportKwh.toFixed(2)+" kWh" : "—";
+  gridImportKwh > 0 ? gridImportKwh.toFixed(2) : "—";
 
 document.getElementById("statSessions").textContent =
   sessionsMeta.length;
