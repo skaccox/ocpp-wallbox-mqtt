@@ -1,4 +1,17 @@
 # Changelog
+## [1.7.51] - 2026-10-02
+- CHG il tasto valuta torna in coda alla riga, dopo il menu delle wallbox: su
+  mobile finisce a destra invece che in testa, su schermo largo cade al centro
+- CHG su desktop si chiama "Vista Costi/Ricavi": c'e' posto per dire a parole
+  cosa fa. Su mobile resta il simbolo di valuta, che e' quello configurato
+## [1.7.50] - 2026-10-02
+- CHG la tendina delle wallbox non si evidenzia piu' in verde quando scegli
+  una wallbox invece di BOTH: e' una scelta come un'altra, non uno stato
+  acceso, e il verde qui vuol dire gia' altro
+- CHG la tendina bars/lines torna a 70px (60 su mobile) e il campo della data
+  su mobile scende a 100px
+## [1.7.49] - 2026-10-02
+- CHG la tendina delle wallbox e' larga 2px in piu' (86px, 72px su mobile)
 ## [1.7.48] - 2026-10-02
 - CHG il tasto valuta passa in testa alla riga, prima di DAY, e ha un colore
   suo in tutti e due gli stati: spento e' il contorno ambra, acceso e' pieno.

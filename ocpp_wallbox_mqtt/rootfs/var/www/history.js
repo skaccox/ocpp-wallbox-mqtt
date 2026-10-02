@@ -216,7 +216,10 @@ function applyUnits(){
 
   const btn = document.getElementById("btnMoney");
   if (btn) {
-    btn.textContent = cur;
+    // solo la scritta corta porta il simbolo: quella lunga dice gia' di cosa
+    // si tratta, e la valuta si legge nei valori
+    const corta = document.getElementById("btnMoneyShort");
+    if (corta) corta.textContent = cur;
     btn.classList.toggle("active", moneyMode);
   }
 }
@@ -484,7 +487,6 @@ document.addEventListener("DOMContentLoaded", () => {
     sel.style.display = "";
     sel.addEventListener("change", () => {
       wbFilter = sel.value;
-      sel.classList.toggle("active", wbFilter !== "both");
       loadCurrentView();
     });
   })();

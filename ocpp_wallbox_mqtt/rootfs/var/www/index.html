@@ -60,16 +60,18 @@
     </div>
         <div id="historyControls" class="historyControls">
           <div class="viewBtns">
-            <!-- Primo, e di un colore suo: non sceglie una vista come quelli
-                 accanto, cambia che cosa dicono tutti i numeri della pagina.
-                 Testo impostato a runtime: e' il simbolo di valuta. -->
-            <button id="btnMoney" class="viewBtn modeBtn" title="Mostra i valori in denaro">€</button>
             <button id="btnDay" class="viewBtn active">DAY</button>
             <button id="btnWeek" class="viewBtn">WEEK</button>
             <button id="btnMonth" class="viewBtn">MONTH</button>
             <button id="btnYear" class="viewBtn">YEAR</button>
             <!-- riempito a runtime: compare solo con piu' di una wallbox -->
             <select id="wbFilter" style="display:none"></select>
+            <!-- In coda, e di un colore suo: non sceglie una vista come i
+                 pulsanti accanto, cambia che cosa dicono tutti i numeri della
+                 pagina. Su schermo largo c'e' posto per dirlo a parole, su
+                 mobile resta il simbolo, scritto a runtime perche' la valuta
+                 si configura. -->
+            <button id="btnMoney" class="viewBtn modeBtn" title="Mostra i valori in denaro"><span class="desktopOnly" id="btnMoneyLong">Vista Costi/Ricavi</span><span class="mobileOnly" id="btnMoneyShort">€</span></button>
           </div>
           <div class="navBtns">
             <button id="prevDay">◀</button>
