@@ -288,7 +288,7 @@ body.history-mode #status {
 
 
 #chartType {
-  width: 108px;
+  width: 92px;
   font-size: 12px;
   padding: 4px 6px;
 }
@@ -725,9 +725,11 @@ body.history-mode #status {
   box-shadow: 0 10px 24px rgba(0,0,0,.55);
 }
 
+/* stessa misura E stesso peso delle righe sotto: in grassetto la prima
+   tariffa sembrava piu' importante anche a parita' di corpo */
 .historyStats .priceList strong {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 /* Le tariffe sono tutte dello stesso rango: la prima sta nel valore e le
@@ -897,7 +899,7 @@ body.history-mode #status {
   }
 
   #chartType {
-    width: 86px;
+    width: 76px;
     font-size: 10px;
   }
 
@@ -905,6 +907,8 @@ body.history-mode #status {
      del resto della barra. Selettore con .historyStats davanti e blocco dopo
      la regola base, altrimenti a parita' di specificita' vince quella e qui
      non cambia niente. */
+  .historyStats .priceList strong { font-size: 9.5px; }
+
   .historyStats .wbSplit{
     font-size: 9.5px;
     line-height: 1.2;

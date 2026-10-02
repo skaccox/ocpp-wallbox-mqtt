@@ -10,6 +10,10 @@ let wbFilter = "both";
 // dell'add-on, iniettati nella pagina come window.OCPP_PRICES.
 let moneyMode = false;
 
+// Ultimi soldi calcolati: la spiegazione di PV Saved mostra anche il netto, e
+// viene riscritta sia quando cambiano i dati sia quando si cambia modalita'.
+let lastMoney = null;
+
 // Calibrazione dei kWh di rete sul contatore del distributore. Vale solo per
 // Grid Import e Grid Export: EV e FV arrivano da altri sensori e non si
 // toccano. Si applica all'origine, dove l'energia viene integrata, cosi' ogni
@@ -169,16 +173,18 @@ function applyUnits(){
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "none" : "";
   }
-  for (const id of ["statPriceImport", "statPriceExport", "statPvNet"]) {
+  for (const id of ["statPriceImport", "statPriceExport"]) {
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "" : "none";
   }
 
   // verde su quello che entra o non esce; il costo resta del colore normale
-  for (const id of ["statPvCharged", "statPvNet", "statGridExport"]) {
+  for (const id of ["statPvCharged", "statGridExport"]) {
     const host = document.getElementById(id)?.parentElement;
     if (host) host.classList.toggle("gain", moneyMode);
   }
+
+  applyStatTips();
 
   const btn = document.getElementById("btnMoney");
   if (btn) {
@@ -223,6 +229,68 @@ function setPriceStat(id, rows){
   }
 
   if (host) host.classList.toggle("priceList", list.length > 1);
+}
+
+// Una spiegazione per modalita': in euro la casella misura un'altra cosa, e
+// un testo unico costringerebbe a leggere anche la meta' che non serve.
+const STAT_TIPS = {
+  statSessions: {
+    kwh: "Numero di ricariche nel periodo."
+  },
+  statEv: {
+    kwh: "Potenza massima di ricarica raggiunta."
+  },
+  statCharged: {
+    kwh: "Energia totale caricata nelle auto.",
+    eur: "Costo della ricarica: la sola parte presa dalla rete, al prezzo d'acquisto. Il solare non si paga."
+  },
+  statPvCharged: {
+    kwh: "Energia solare caricata nelle auto.",
+    eur: "Spesa evitata: quanto avresti pagato comprando dalla rete l'energia solare finita nelle auto."
+  },
+  statPvChargedPct: {
+    kwh: "Quota della ricarica coperta dal solare."
+  },
+  statPvMax: {
+    kwh: "Potenza massima prodotta dal fotovoltaico."
+  },
+  statSolar: {
+    kwh: "Energia totale prodotta dal fotovoltaico."
+  },
+  statGridExport: {
+    kwh: "Energia immessa in rete.",
+    eur: "Incasso stimato per l'energia immessa, al prezzo di vendita."
+  },
+  statGridImport: {
+    kwh: "Energia prelevata dalla rete.",
+    eur: "Costo dell'energia prelevata, al prezzo d'acquisto (energia, oneri, accise e IVA; escluse quota fissa e potenza)."
+  },
+  statPriceImport: {
+    eur: "Prezzo d'acquisto applicato nel periodo, dalla tabella prezzi con data di validita'."
+  },
+  statPriceExport: {
+    eur: "Prezzo di vendita applicato nel periodo, dalla tabella prezzi con data di validita'."
+  }
+};
+
+function applyStatTips(){
+  for (const [id, testi] of Object.entries(STAT_TIPS)) {
+    const host = document.getElementById(id)?.parentElement;
+    if (!host) continue;
+
+    let testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
+
+    // Il risparmio netto sta qui invece che in una casella sua: e' un numero
+    // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
+    // che si guardano sempre.
+    if (id === "statPvCharged" && moneyMode && lastMoney && lastMoney.netPv > 0) {
+      const perWb = wbBreakdownParts(lastMoney.netByWb || null, priceTables().cur);
+      testo += ` Netto ${fmtMoney(lastMoney.netPv)}, tolto il mancato incasso dell'export`;
+      testo += perWb.length ? ` (${perWb.join(" · ")}).` : ".";
+    }
+
+    host.title = testo;
+  }
 }
 
 // Il title nativo si vede solo col mouse: su mobile serve un riquadro vero.
@@ -1057,11 +1125,9 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
                    totPv > 0 ? (moneyMode ? fmtMoney(valore) : fmtNum(valore, 2)) : "—",
                    wbBreakdownParts(parti || null, moneyMode ? cur : ""));
 
-  // Il netto ha una casella sua: come riga sotto al lordo si leggeva come un
-  // dettaglio, mentre e' il numero che conta davvero.
-  setStatWithSplit("statPvNet",
-                   (moneyMode && totPv > 0) ? fmtMoney(m.netPv) : "—",
-                   moneyMode ? wbBreakdownParts(m.netByWb || null, cur) : []);
+  // il netto finisce nella spiegazione di questa casella
+  lastMoney = money || null;
+  applyStatTips();
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }

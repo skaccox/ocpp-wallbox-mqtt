@@ -1,4 +1,18 @@
 # Changelog
+## [1.7.39] - 2026-10-02
+- CHG via la colonna "PV Net": il netto passa nella spiegazione di PV Saved,
+  con la scomposizione per wallbox. E' un numero che si guarda ogni tanto e in
+  barra rubava spazio a quelli che si guardano sempre
+- FIX nelle colonne dei prezzi la prima tariffa era in grassetto e sembrava
+  piu' importante delle altre: ora tutte le righe hanno lo stesso corpo e lo
+  stesso peso, anche su mobile
+## [1.7.38] - 2026-10-02
+- CHG il menu delle wallbox torna accanto al pulsante valuta: nella riga della
+  data, con le frecce e bars/lines, su mobile mandava tutto su tre righe
+- CHG le spiegazioni delle caselle cambiano con la modalita': in euro parlano
+  di soldi, in kWh di energia. Prima erano testi misti "kWh: ... €: ..." e
+  meta' non serviva mai
+- CHG la tendina bars/lines si stringe (92px, 76px su mobile)
 ## [1.7.37] - 2026-10-02
 - ADD casella "PV Net" accanto a PV Saved, solo in denaro: il risparmio reale
   (spesa evitata meno il mancato incasso dell'export) con la sua scomposizione
