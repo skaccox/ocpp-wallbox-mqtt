@@ -196,10 +196,19 @@ function applyUnits(){
     if (host) host.style.display = moneyMode ? "" : "none";
   }
 
-  // verde su quello che entra o non esce; il costo resta del colore normale
-  for (const id of ["statPvCharged", "statGridExport"]) {
-    const host = document.getElementById(id)?.parentElement;
-    if (host) host.classList.toggle("gain", moneyMode);
+  // Verde quello che entra o non esce, ambra quello che esce - lo stesso ambra
+  // del tasto che accende questa modalita'. In kWh nessuno dei due: li' sono
+  // energie, e un'energia non ha un verso del denaro. I prezzi restano neutri
+  // perche' non sono importi: dicono quanto vale un kWh, non quanto e' uscito.
+  const TINTE = {
+    gain: ["statPvCharged", "statGridExport"],
+    cost: ["statCharged", "statGridImport"]
+  };
+  for (const [tinta, ids] of Object.entries(TINTE)) {
+    for (const id of ids) {
+      const host = document.getElementById(id)?.parentElement;
+      if (host) host.classList.toggle(tinta, moneyMode);
+    }
   }
 
   for (const [id, pos] of Object.entries(ORDINE_DENARO)) {
@@ -216,10 +225,15 @@ function applyUnits(){
 
   const btn = document.getElementById("btnMoney");
   if (btn) {
-    // solo la scritta corta porta il simbolo: quella lunga dice gia' di cosa
-    // si tratta, e la valuta si legge nei valori
+    // Tutte e due portano il simbolo, che e' quello configurato: dicono cosa
+    // cambia premendo - i valori passano in denaro - invece di provare a
+    // elencare cosa si vedra'. "Costi e ricavi" sarebbe stato impreciso: PV
+    // Saved e' un costo evitato, non un ricavo.
     const corta = document.getElementById("btnMoneyShort");
     if (corta) corta.textContent = cur;
+
+    const lunga = document.getElementById("btnMoneyLong");
+    if (lunga) lunga.textContent = `Valori in ${cur}`;
     btn.classList.toggle("active", moneyMode);
   }
 }

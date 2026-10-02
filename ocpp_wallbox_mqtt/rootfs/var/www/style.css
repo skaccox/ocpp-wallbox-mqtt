@@ -718,8 +718,6 @@ body.history-mode #status {
 /* scomposizione per wallbox accanto a "EV Total" (solo con piu' di una wallbox) */
 /* una riga per wallbox, incolonnate sotto al valore: niente separatore, ci
    pensa l'andare a capo */
-/* elenco di tariffe: il primo valore ha la stessa misura di quelli sotto,
-   altrimenti la prima riga sembrerebbe piu' importante delle altre */
 /* Solo il numero, non tutta la casella: sono soldi che entrano o che non
    escono, e si distinguono a colpo d'occhio da quelli che se ne vanno. */
 .historyStats .gain strong {
@@ -728,6 +726,17 @@ body.history-mode #status {
 
 .historyStats .gain .wbSplit {
   color: #22c55e;
+  opacity: .85;
+}
+
+/* L'altro verso: soldi che se ne vanno. Ambra come il tasto che accende
+   questa modalita', cosi' il colore dice "denaro" prima ancora del simbolo. */
+.historyStats .cost strong {
+  color: #f59e0b;
+}
+
+.historyStats .cost .wbSplit {
+  color: #f59e0b;
   opacity: .85;
 }
 
