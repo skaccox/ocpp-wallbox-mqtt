@@ -1,4 +1,11 @@
 # Changelog
+## [1.7.33] - 2026-10-02
+- CHG in GRAPH la prima riga resta alle sole viste (DAY/WEEK/MONTH/YEAR e
+  valuta): i menu wallbox e bars/lines scendono nella riga della data, col
+  wallbox per primo, cosi' su mobile e' li' che la riga va a capo
+- CHG il menu delle wallbox si stringe (84px, 70px su mobile): com'era non ci
+  stava
+- CHG la riga del netto passa da 10px a 12px: era piu' piccola delle wallbox
 ## [1.7.32] - 2026-10-02
 - ADD in denaro "PV Charged" si chiama "PV Saved" e sotto al valore compare il
   risparmio netto (meno il mancato incasso dell'export), col tooltip che

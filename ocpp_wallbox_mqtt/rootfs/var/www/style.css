@@ -255,6 +255,13 @@ body.history-mode #status {
   gap: 6px;
 }
 
+/* con i due menu in coda la riga della data puo' non starci: va a capo invece
+   di sbordare, e il punto di rottura cade dopo il menu delle wallbox */
+.navBtns {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 
 #chartWrap.fullscreen #historyWrap {
   flex: 1 1 auto;
@@ -690,9 +697,9 @@ body.history-mode #status {
    pensa l'andare a capo */
 /* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
 .netLine {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
-  opacity: .75;
+  opacity: .8;
 }
 
 .wbSplit {
@@ -707,9 +714,9 @@ body.history-mode #status {
 }
 
 #wbFilter {
-  width: 96px;
-  font-size: 12px;
-  padding: 4px 6px;
+  width: 84px;
+  font-size: 11px;
+  padding: 4px 4px;
 }
 
 #wbFilter.active {
@@ -847,6 +854,18 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
+  #wbFilter {
+    width: 70px;
+    font-size: 10px;
+  }
+
+  #chartType {
+    width: 86px;
+    font-size: 10px;
+  }
+
+  .historyStats .netLine { font-size: 10.5px; }
+
   /* In cima lo spazio e' poco: le righe per wallbox vanno molto piu' piccole
      del resto della barra. Selettore con .historyStats davanti e blocco dopo
      la regola base, altrimenti a parita' di specificita' vince quella e qui
