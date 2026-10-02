@@ -1,7 +1,7 @@
 name: "OCPP Wallbox MQTT Server"
 slug: "ocpp_wallbox_mqtt"
 description: "OCPP Wallbox MQTT Server"
-version: "1.7.34"
+version: "1.7.35"
 url: "https://github.com/skaccox/ocpp-wallbox-mqtt"
 documentation: "https://gitlab.com/lucabon/ocpp-mqtt-perl-server"
 
@@ -78,8 +78,12 @@ options:
   data_dir: "data"
   default_view: "live"
 
-  price_import: 0.22
-  price_export: 0.10
+  price_import:
+    - from: "2026-01-01"
+      price: 0.22
+  price_export:
+    - from: "2026-01-01"
+      price: 0.10
   currency: "€"
 
   grid_import_factor: 1.0
@@ -132,8 +136,12 @@ schema:
   data_dir: str?
   default_view: "list(live|graph)"
 
-  price_import: float
-  price_export: float
+  price_import:
+    - from: str
+      price: float
+  price_export:
+    - from: str
+      price: float
   currency: str?
 
   grid_import_factor: float

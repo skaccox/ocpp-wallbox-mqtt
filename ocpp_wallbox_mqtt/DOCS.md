@@ -414,6 +414,29 @@ version and commit are in the panel.
 What a kWh costs when you buy it from the grid, what you are paid when you
 feed one in, and the symbol to print. Decimal comma is accepted.
 
+Both are **lists of rows**, each with the date the price starts applying:
+
+```yaml
+price_import:
+  - from: "2026-05-01"
+    price: 0.213
+  - from: "2026-07-01"
+    price: 0.229
+price_export:
+  - from: "2026-05-01"
+    price: 0.10
+```
+
+Rows can be added, edited and removed from the add-on configuration page, and
+they do not need to be in order. **Every kWh is valued with the price in force
+on the day it was measured** — so a week or a month straddling a price change
+is summed day by day, each at its own price, not multiplied by a single one at
+the end. Before the first row, the first row's price applies, so a list
+starting in May still values April.
+
+A row with an unreadable date or price is skipped, with a line in the add-on
+log, instead of voiding the whole list.
+
 These are **UI-only**: they never reach `ocpp.ini` and the Perl server knows
 nothing about them. They exist so the stats bar in **GRAPH** can show money
 instead of energy, by pressing the currency button next to DAY/WEEK/MONTH/YEAR.

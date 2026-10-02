@@ -56,8 +56,8 @@ DEFAULT_VIEW="$(bashio::config 'default_view')"
 # Prezzi dell'energia: servono solo alla UI per mostrare gli euro al posto dei
 # kWh, quindi non finiscono in ocpp.ini. La virgola decimale e' un errore
 # facile da fare nelle opzioni, meglio accettarla.
-PRICE_IMPORT="$(bashio::config 'price_import' | tr ',' '.')"
-PRICE_EXPORT="$(bashio::config 'price_export' | tr ',' '.')"
+# I listini sono liste di righe {from, price}: li legge direttamente il web
+# server da /data/options.json, che e' gia' JSON. Qui resta solo la valuta.
 CURRENCY="$(bashio::config 'currency')"
 
 # Calibrazione dei kWh di rete sul contatore del distributore: moltiplicano
@@ -675,8 +675,6 @@ export OCPP_DATA_DIR="${APP_DIR}/${DATA_DIR:-data}"
 export OCPP_LOG="${APP_DIR}/ocpp.log"
 export OCPP_DEFAULT_VIEW="${DEFAULT_VIEW:-live}"
 export OCPP_INI="${INI_FILE}"
-export OCPP_PRICE_IMPORT="${PRICE_IMPORT}"
-export OCPP_PRICE_EXPORT="${PRICE_EXPORT}"
 export OCPP_CURRENCY="${CURRENCY}"
 export OCPP_GRID_IMPORT_FACTOR="${GRID_IMPORT_FACTOR}"
 export OCPP_GRID_EXPORT_FACTOR="${GRID_EXPORT_FACTOR}"
@@ -710,12 +708,65 @@ def _float(name, default):
         return default
 
 
-# Prezzi per la sola UI: il server perl non li usa.
-PRICES = {
-    "import":   _float("OCPP_PRICE_IMPORT", 0.0),
-    "export":   _float("OCPP_PRICE_EXPORT", 0.0),
-    "currency": os.environ.get("OCPP_CURRENCY") or "€",
-}
+OPTIONS_FILE = "/data/options.json"
+YMD_RE = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})$")
+
+
+def _options():
+    try:
+        with open(OPTIONS_FILE, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def _price_table(opts, key):
+    """Righe {from, price} ordinate per data.
+
+    "from" esce in forma compatta (20260501) perche' il client confronta con
+    la stessa chiave che usa per i file giornalieri. Una riga malformata viene
+    scartata con un avviso invece di far saltare tutto il listino: meglio un
+    prezzo in meno che nessun prezzo.
+    """
+    raw = opts.get(key)
+    rows = []
+
+    if isinstance(raw, list):
+        for r in raw:
+            if not isinstance(r, dict):
+                continue
+            m = YMD_RE.match(str(r.get("from", "")).strip())
+            try:
+                price = float(str(r.get("price")).replace(",", "."))
+            except (TypeError, ValueError):
+                m = None
+            if not m:
+                print("[ocpp-ui] riga di %s ignorata: %r" % (key, r), flush=True)
+                continue
+            rows.append({"from": "".join(m.groups()), "price": price})
+    elif raw is not None:
+        # configurazione vecchia col numero secco: vale da sempre
+        try:
+            rows.append({"from": "19700101", "price": float(raw)})
+        except (TypeError, ValueError):
+            pass
+
+    rows.sort(key=lambda r: r["from"])
+    return rows
+
+
+def prices_config():
+    opts = _options()
+    return {
+        "import":   _price_table(opts, "price_import"),
+        "export":   _price_table(opts, "price_export"),
+        "currency": os.environ.get("OCPP_CURRENCY") or "€",
+    }
+
+
+# Letti a ogni richiesta: cambiando le opzioni basta ricaricare la pagina,
+# senza riavviare l'add-on.
+PRICES = prices_config()
 
 # Calibrazione dei kWh di rete sul contatore del distributore. Zero o valori
 # assurdi azzererebbero le statistiche: si torna a 1.
@@ -1202,7 +1253,7 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "default_view": DEFAULT_VIEW,
                 "wallbox_names": wallbox_names(INI),
-                "prices": PRICES,
+                "prices": prices_config(),
                 "grid_factors": GRID_FACTORS,
             }).encode())
             return
@@ -1222,7 +1273,7 @@ class H(BaseHTTPRequestHandler):
                     '<script>'
                     f'window.OCPP_DEFAULT_VIEW="{DEFAULT_VIEW}";'
                     f'window.OCPP_WALLBOX_NAMES={json.dumps(wallbox_names(INI))};'
-                    f'window.OCPP_PRICES={json.dumps(PRICES)};'
+                    f'window.OCPP_PRICES={json.dumps(prices_config())};'
                     f'window.OCPP_GRID_FACTORS={json.dumps(GRID_FACTORS)};'
                     '</script>'
                 ).encode()

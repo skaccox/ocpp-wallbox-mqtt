@@ -1,4 +1,23 @@
 # Changelog
+## [1.7.35] - 2026-10-02
+- CHG i numeri seguono la lingua del browser: in italiano i decimali hanno la
+  virgola e le migliaia il punto (3,30€, 0,213, 12.345,68). Vale per tutte le
+  cifre a schermo - statistiche, tooltip, sessioni - non solo per gli euro
+- CHG in denaro la barra mostra solo le voci che sono soldi: Sessions, EV Max,
+  PV %, PV Max e PV Total spariscono, e al loro posto compaiono Price Import e
+  Price Export con le tariffe applicate nel periodo (piu' di una se e' cambiata)
+- ADD price_import e price_export diventano listini: righe {from, price} con
+  la data di inizio validita', gestibili dalla pagina di configurazione. Ogni
+  kWh vale il prezzo in vigore il giorno in cui e' stato misurato, in tutte le
+  viste e in tutti i conti (EV Total, PV Saved, netto, Grid Import/Export)
+- CHG i soldi si calcolano dentro il totale del giorno e i periodi li sommano:
+  prima si moltiplicava il totale per un prezzo solo, che a cavallo di un
+  cambio tariffa dava un numero sbagliato
+- CHG il listino entra nella chiave della cache dei giorni, come i fattori
+- FIX la riga del netto finiva a volte sopra e a volte sotto la scomposizione
+  per wallbox, a seconda dei periodi attraversati: decideva l'ordine di
+  creazione. Ora viene riposizionata a ogni ridisegno e resta sempre la prima
+  sotto al valore
 ## [1.7.34] - 2026-10-02
 - CHG la riga del netto e' bianca piena: smorzata si confondeva con le righe
   per wallbox, che le stanno sotto alla stessa misura
