@@ -293,11 +293,11 @@ function applyStatTips(){
     // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
     // che si guardano sempre. Sta su una riga sua perche' e' un valore, e in
     // coda alla spiegazione si leggeva come parte del discorso.
-    let righe = "";
+    let guadagno = "";
     if (id === "statPvCharged" && moneyMode && lastMoney && lastMoney.netPv > 0) {
       const perWb = wbBreakdownParts(lastMoney.netByWb || null, priceTables().cur);
-      righe = `Netto ${fmtMoney(lastMoney.netPv)}`;
-      if (perWb.length) righe += ` (${perWb.join(" · ")})`;
+      guadagno = `Netto ${fmtMoney(lastMoney.netPv)}`;
+      if (perWb.length) guadagno += ` (${perWb.join(" · ")})`;
     }
 
     // In barra il prezzo e' uno solo, la media del periodo: le tariffe che
@@ -306,13 +306,16 @@ function applyStatTips(){
     const elenco = id === "statPriceImport" ? lastMoney?.pricesImport
                  : id === "statPriceExport" ? lastMoney?.pricesExport
                  : null;
-    if (moneyMode && elenco && elenco.length > 1) {
-      righe = elenco.map(r => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`).join("\n");
-    }
+    const tariffe = (moneyMode && elenco && elenco.length > 1)
+      ? elenco.map(r => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`).join("\n")
+      : "";
 
     host.dataset.tipMain = testo;
-    host.dataset.tipNet = righe;
-    host.title = righe ? testo + "\n" + righe : testo;
+    host.dataset.tipNet = guadagno;
+    host.dataset.tipList = tariffe;
+
+    const coda = guadagno || tariffe;
+    host.title = coda ? testo + "\n" + coda : testo;
   }
 }
 
@@ -347,6 +350,13 @@ function setupStatTips(){
       net.className = "tipNet";
       net.textContent = box.dataset.tipNet;
       tip.appendChild(net);
+    }
+
+    if (box.dataset.tipList) {
+      const righe = document.createElement("div");
+      righe.className = "tipList";
+      righe.textContent = box.dataset.tipList;
+      tip.appendChild(righe);
     }
 
     tip.style.display = "block";

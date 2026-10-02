@@ -450,7 +450,7 @@ What each figure becomes when the button is on:
 | `Grid Import` | spent, at the buying price |
 | `Grid Export` | earned, at the selling price |
 
-Two columns appear as well, **`Price Buy`** and **`Price Sell`**: the average
+Two columns appear as well, **`Buy`** and **`Sell`**: the average
 price of the period, weighted by the kWh taken from (or fed into) the grid, so
 a tariff that lasted two days does not count as much as one that lasted six
 months. When more than one tariff was in force, the tooltip lists them, each

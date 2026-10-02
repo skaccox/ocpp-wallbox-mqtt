@@ -1,4 +1,10 @@
 # Changelog
+## [1.7.42] - 2026-10-02
+- CHG le due colonne dei prezzi si chiamano "Buy" e "Sell": in barra "Price"
+  davanti non aggiungeva niente e rubava spazio
+- FIX nella spiegazione di Buy e Sell l'elenco delle tariffe non e' piu' verde:
+  il verde vuol dire soldi che entrano, e un prezzo d'acquisto non lo e'
+- CHG la tendina bars/lines si stringe ancora (66px, 56px su mobile)
 ## [1.7.41] - 2026-10-02
 - FIX nella vista anno EV Total e PV Saved tornano divisi per wallbox. I file
   piu' vecchi non registrano il solare per singola ricarica, e un solo giorno

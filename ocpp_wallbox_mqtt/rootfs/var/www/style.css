@@ -288,7 +288,7 @@ body.history-mode #status {
 
 
 #chartType {
-  width: 76px;
+  width: 66px;
   font-size: 12px;
   padding: 4px 6px;
   align-self: stretch;
@@ -720,6 +720,14 @@ body.history-mode #status {
   white-space: pre-line;
 }
 
+/* Un elenco di tariffe non e' un guadagno: stesso stacco del netto, ma del
+   colore del testo, se no il verde lo farebbe leggere come un incasso. */
+.statTip .tipList {
+  margin-top: 6px;
+  color: var(--text);
+  white-space: pre-line;
+}
+
 .statTip {
   position: fixed;
   z-index: 300;
@@ -895,7 +903,7 @@ body.history-mode #status {
   }
 
   #chartType {
-    width: 64px;
+    width: 56px;
     font-size: 10px;
   }
 
