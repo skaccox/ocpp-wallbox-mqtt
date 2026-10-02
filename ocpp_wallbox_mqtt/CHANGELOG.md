@@ -1,8 +1,9 @@
 # Changelog
-## [1.7.35] - 2026-10-02
+## [1.7.36] - 2026-10-02
 - CHG le colonne dei prezzi portano il simbolo sul valore (0,213€) e, quando
   nel periodo la tariffa e' cambiata, elencano le righe una sotto l'altra con
   la data di decorrenza: "01/05/2026 0,213€"
+## [1.7.35] - 2026-10-02
 - CHG i numeri seguono la lingua del browser: in italiano i decimali hanno la
   virgola e le migliaia il punto (3,30€, 0,213, 12.345,68). Vale per tutte le
   cifre a schermo - statistiche, tooltip, sessioni - non solo per gli euro
