@@ -1,4 +1,8 @@
 # Changelog
+## [1.7.43] - 2026-10-02
+- FIX su mobile il campo della data si stringe a 104px: era largo di suo molto
+  piu' del suo contenuto ("02/10/2026" e l'icona) e mandava a capo la riga
+  delle frecce
 ## [1.7.42] - 2026-10-02
 - CHG le due colonne dei prezzi si chiamano "Buy" e "Sell": in barra "Price"
   davanti non aggiungeva niente e rubava spazio

@@ -897,6 +897,17 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
+  /* Il campo data e' largo di suo molto piu' del suo contenuto - "02/10/2026"
+     e l'icona del calendario - e su schermi stretti mandava a capo la riga
+     delle frecce. box-sizing esplicito: qui i padding non sono inclusi. */
+  #datePicker {
+    width: 104px;
+    font-size: 11px;
+    padding: 4px 4px;
+    box-sizing: border-box;
+    align-self: stretch;
+  }
+
   #wbFilter {
     width: 70px;
     font-size: 10px;
