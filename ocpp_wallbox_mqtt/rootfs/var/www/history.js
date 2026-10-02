@@ -22,8 +22,7 @@ function prices(){
 // Energia o denaro, secondo la modalita'. Il prezzo e' quello della voce:
 // acquisto per quel che si preleva, vendita per quel che si immette.
 function fmtEnergy(kwh, price){
-  const v = moneyMode ? (kwh || 0) * price : (kwh || 0);
-  return v.toFixed(2);
+  return moneyMode ? fmtMoney((kwh || 0) * price) : (kwh || 0).toFixed(2);
 }
 
 // Quanto e' costato caricare: l'energia presa dalla rete per l'auto, cioe' il
@@ -39,18 +38,32 @@ function pvSavingKwh(pvKwh){
   return pvKwh || 0;
 }
 
-// Le quattro voci convertibili cambiano unita' insieme al contenuto.
+// Le quattro voci convertibili cambiano insieme al contenuto. In denaro
+// l'unita' accanto all'icona sparisce: il simbolo sta attaccato ai valori
+// ("46.71€"), che e' come si legge una cifra.
 function applyUnits(){
   const cur = prices().cur;
+
   for (const id of ["uCharged", "uPvCharged", "uGridExport", "uGridImport"]) {
     const el = document.getElementById(id);
-    if (el) el.textContent = moneyMode ? cur : "kWh";
+    if (el) el.textContent = moneyMode ? "" : "kWh";
   }
+
+  // in denaro non e' piu' "quanto solare e' entrato" ma "quanto ha fatto
+  // risparmiare", e il nome deve dirlo
+  const lbl = document.getElementById("lblPvCharged");
+  if (lbl) lbl.textContent = moneyMode ? "PV Saved" : "PV Charged";
+
   const btn = document.getElementById("btnMoney");
   if (btn) {
     btn.textContent = cur;
     btn.classList.toggle("active", moneyMode);
   }
+}
+
+// Valore in denaro: simbolo attaccato, senza spazio.
+function fmtMoney(v){
+  return (v || 0).toFixed(2) + prices().cur;
 }
 let chartTypeMode = "bars";
 const chartTypeDefaults = { day: "bars", week: "bars", month: "lines", year: "bars" };
@@ -715,7 +728,7 @@ function drawBarChart(labels, totals, title) {
 // Valore della statistica e, sotto, una riga per wallbox. Gli elementi sono
 // fratelli dentro lo stesso contenitore: un blocco romperebbe il layout
 // flex/nowrap di .historyStats.
-function setStatWithSplit(id, text, parts){
+function setStatWithSplit(id, text, parts, extra){
   const el = document.getElementById(id);
   if (!el) return;
 
@@ -728,6 +741,7 @@ function setStatWithSplit(id, text, parts){
 
   if (!parts || !parts.length) {
     if (sub) sub.remove();
+    aggiungiRigaExtra(el, host, extra);
     return;
   }
   if (!sub) {
@@ -743,6 +757,26 @@ function setStatWithSplit(id, text, parts){
     one.textContent = p;
     sub.appendChild(one);
   }
+
+  aggiungiRigaExtra(el, host, extra);
+}
+
+// Riga facoltativa fra il valore e la scomposizione (oggi: il risparmio netto).
+// Va inserita DOPO la scomposizione con "afterend" sul valore, cosi' finisce
+// subito sotto al numero e sopra alle wallbox.
+function aggiungiRigaExtra(el, host, extra){
+  let line = host.querySelector(".netLine");
+
+  if (!extra) {
+    if (line) line.remove();
+    return;
+  }
+  if (!line) {
+    line = document.createElement("span");
+    line.className = "netLine";
+    el.insertAdjacentElement("afterend", line);
+  }
+  line.textContent = extra;
 }
 
 // In denaro il totale caricato diventa quanto e' costato: serve quindi anche
@@ -768,8 +802,8 @@ function setChargedStat(totKwh, byWb, totPv, pvByWb){
   }
 
   setStatWithSplit("statCharged",
-    (totKwh > 0 || Object.keys(byWb || {}).length) ? costo.toFixed(2) : "—",
-    pvByWb ? wbBreakdownParts(parti, "") : []);
+    (totKwh > 0 || Object.keys(byWb || {}).length) ? fmtMoney(costo) : "—",
+    pvByWb ? wbBreakdownParts(parti, p.cur) : []);
 }
 
 // "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
@@ -800,8 +834,23 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
     parti[wb] = moneyMode ? pvSavingKwh(pvByWb[wb]) * p.imp : pvByWb[wb];
   }
 
-  setStatWithSplit("statPvCharged", totPv > 0 ? valore.toFixed(2) : "—",
-                   wbBreakdownParts(pvByWb ? parti : null, ""));
+  // Netto: il solare finito nell'auto non e' stato immesso, quindi al
+  // risparmio va tolto l'incasso dell'export a cui si e' rinunciato.
+  const netto = (moneyMode && totPv > 0)
+    ? `net ${fmtMoney(pvSavingKwh(totPv) * Math.max(0, p.imp - p.exp))}`
+    : "";
+
+  setStatWithSplit("statPvCharged",
+                   totPv > 0 ? (moneyMode ? fmtMoney(valore) : valore.toFixed(2)) : "—",
+                   wbBreakdownParts(pvByWb ? parti : null, moneyMode ? p.cur : ""),
+                   netto);
+
+  const host = document.getElementById("statPvCharged")?.parentElement;
+  if (host) {
+    host.title = moneyMode
+      ? "Lordo: energia non comprata. Netto: meno il mancato incasso dell'export"
+      : "";
+  }
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }

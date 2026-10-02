@@ -688,6 +688,13 @@ body.history-mode #status {
 /* scomposizione per wallbox accanto a "EV Total" (solo con piu' di una wallbox) */
 /* una riga per wallbox, incolonnate sotto al valore: niente separatore, ci
    pensa l'andare a capo */
+/* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
+.netLine {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: .75;
+}
+
 .wbSplit {
   display: inline-flex;
   flex-direction: column;

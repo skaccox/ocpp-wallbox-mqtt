@@ -1,4 +1,11 @@
 # Changelog
+## [1.7.32] - 2026-10-02
+- ADD in denaro "PV Charged" si chiama "PV Saved" e sotto al valore compare il
+  risparmio netto (meno il mancato incasso dell'export), col tooltip che
+  spiega la differenza fra lordo e netto
+- CHG in denaro il simbolo di valuta lascia l'icona e si attacca ai valori
+  ("46.71€"), scomposizioni per wallbox comprese
+- CHG price_import di default passa da 0.25 a 0.22
 ## [1.7.31] - 2026-10-02
 - ADD opzioni price_import, price_export e currency: il prezzo dell'energia
   comprata e di quella immessa. Servono solo alla UI, non vanno in ocpp.ini

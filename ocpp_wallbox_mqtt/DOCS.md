@@ -423,7 +423,7 @@ What each figure becomes when the button is on:
 | stat | in money |
 |---|---|
 | `EV Total` | what charging **cost**: the energy taken from the grid for the car — charged minus the solar share — at the buying price |
-| `PV Charged` | what the solar **saved**: energy you did not have to buy, at the buying price |
+| `PV Charged` | renamed **`PV Saved`**: what the solar saved, i.e. energy you did not have to buy, at the buying price. Under it, `net` subtracts the export you gave up: `kWh × (price_import − price_export)` |
 | `Grid Import` | spent, at the buying price |
 | `Grid Export` | earned, at the selling price |
 
