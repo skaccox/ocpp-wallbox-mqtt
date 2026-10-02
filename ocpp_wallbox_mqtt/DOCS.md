@@ -489,8 +489,7 @@ record per charging session. For those days the solar of the day is split
 between the wallboxes **in proportion to the kWh each one charged**: that
 day's solar total is already an estimate by integration, so dividing it adds
 no false precision, and leaving a hole instead used to wipe out the breakdown
-of the whole period containing it - a year always contains one such day. When
-a period includes estimated days, the `PV Charged` tooltip says so.
+of the whole period containing it - a year always contains one such day.
 
 ---
 

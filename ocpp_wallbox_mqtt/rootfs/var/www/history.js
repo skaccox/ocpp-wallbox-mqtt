@@ -19,10 +19,6 @@ let lastMoney = null;
 // valuta faceva lampeggiare un disegno identico a quello di prima.
 let lastStats = null;
 
-// Vero quando nel periodo c'e' almeno un giorno con la scomposizione del FV
-// stimata invece che letta: la spiegazione di PV Charged lo dice.
-let lastPvEst = false;
-
 // Come ridisegnare il grafico a periodo quando cambia la valuta. Resta null
 // nella vista giorno: li' le curve sono potenze istantanee in kW, e una
 // potenza in euro diventerebbe EUR/h, che non vuol dire niente.
@@ -206,6 +202,16 @@ function applyUnits(){
     if (host) host.classList.toggle("gain", moneyMode);
   }
 
+  for (const [id, pos] of Object.entries(ORDINE_DENARO)) {
+    const host = document.getElementById(id)?.parentElement;
+    if (host) host.style.order = moneyMode ? pos : "";
+  }
+
+  // il riquadro "No data found" sta nello stesso contenitore: senza un posto
+  // suo, con gli altri spostati finirebbe davanti a tutti
+  const err = document.getElementById("historyError");
+  if (err) err.style.order = moneyMode ? 9 : "";
+
   applyStatTips();
 
   const btn = document.getElementById("btnMoney");
@@ -246,6 +252,20 @@ function setPriceStat(id, media){
   if (!document.getElementById(id)) return;
   setStatWithSplit(id, media == null ? "—" : fmtPrice(media), []);
 }
+
+// In denaro l'ordine del DOM non racconta piu' niente: e' pensato per i kWh,
+// dove le voci stanno in gruppi per argomento. Qui il filo e' un altro: prima
+// quello che esce, poi quello che non e' uscito o e' entrato, infine le
+// tariffe che hanno prodotto quei numeri - che sono ingressi del calcolo, non
+// risultati. Si sposta solo la vista, il DOM resta quello buono per i kWh.
+const ORDINE_DENARO = {
+  statCharged:      1,   // speso per la ricarica
+  statGridImport:   2,   // speso in tutto: la ricarica ne e' una parte
+  statPvCharged:    3,   // non speso grazie al sole
+  statGridExport:   4,   // incassato
+  statPriceImport:  5,
+  statPriceExport:  6
+};
 
 // Una spiegazione per modalita': in euro la casella misura un'altra cosa, e
 // un testo unico costringerebbe a leggere anche la meta' che non serve.
@@ -294,13 +314,7 @@ function applyStatTips(){
     const host = document.getElementById(id)?.parentElement;
     if (!host) continue;
 
-    let testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
-
-    // Una scomposizione stimata non si distingue a vederla: va detto.
-    if ((id === "statPvCharged" || id === "statPvChargedPct") && lastPvEst) {
-      testo += " Per i giorni piu' vecchi la divisione fra wallbox e' stimata:"
-             + " quei file non registrano il solare di ogni singola ricarica.";
-    }
+    const testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
 
     // Il risparmio netto sta qui invece che in una casella sua: e' un numero
     // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
@@ -764,7 +778,6 @@ function mergeTotals(list){
     pvChargedByWb: ok.every(t => t.pvChargedByWb)
       ? mergeKwhByWallbox(ok.map(t => t.pvChargedByWb))
       : null,
-    pvSplitEst: ok.some(t => t.pvSplitEst),
     money: mergeMoney(ok.map(t => t.money)),
     hasData: true
   };
@@ -868,8 +881,6 @@ async function computeDailyTotals(d) {
                   // bastava un giorno di sosta per far sparire la
                   // scomposizione del FV dell'intera settimana o del mese.
                   pvChargedByWb: pvByWb,
-                  // la barra lo dice nella spiegazione: non e' un dato letto
-                  pvSplitEst: !pvReale,
                   // col listino di QUESTO giorno: i periodi li sommano
                   money: dayMoney(ymd, { chargeKwh, pvChargedKwh, importKwh, exportKwh,
                                          chargeByWb, pvChargedByWb: pvByWb }),
@@ -1260,7 +1271,7 @@ function wbPvPctParts(pvByWb, chargeByWb){
 
 // pvByWb null = il dato per-wallbox non c'e' (file senza col 11, o giorni misti
 // nel periodo): si mostra solo il totale, senza inventare una scomposizione.
-function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money, splitStimato){
+function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
   const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
   const m = money || {};
   const cur = priceTables().cur;
@@ -1275,7 +1286,6 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money, splitStimato){
 
   // il netto finisce nella spiegazione di questa casella
   lastMoney = money || null;
-  lastPvEst = !!splitStimato;
   applyStatTips();
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
@@ -1302,13 +1312,12 @@ function updatePeriodStats(totals) {
   // salta: sommare solo i giorni che ce l'hanno darebbe percentuali false.
   const pvSplitOk = totals.every(t => !t.hasData || t.pvChargedByWb);
   const pvByWb = pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null;
-  const pvSplitEst = totals.some(t => t.hasData && t.pvSplitEst);
   const money = mergeMoney(totals.map(t => t.money));
 
   lastStats = () => updatePeriodStats(totals);
 
   setChargedStat(totCharge, byWb, money);
-  setPvStats(totPvCharged, totCharge, pvByWb, byWb, money, pvSplitEst);
+  setPvStats(totPvCharged, totCharge, pvByWb, byWb, money);
   setPriceStats(money, { imp: sum("importKwh"), exp: sum("exportKwh") });
   document.getElementById("statSessions").textContent = sessions || "—";
   document.getElementById("statPvMax").textContent    = pvMax ? fmtNum(pvMax, 2) : "—";
@@ -1648,7 +1657,6 @@ const pvRealeDay = sessionsMeta.length === 0
   ? {}                                   // niente ricariche: scomposizione vuota, non stimata
   : (pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null);
 const pvByWbDay = pvRealeDay || splitProporzionale(chargeByWbDay, pvChargedKwh);
-const pvSplitEstDay = !pvRealeDay;
 
 document.getElementById("statPvMax").textContent =
   pvMM ? fmtNum(pvMM.max, 2) : "—";
@@ -1687,7 +1695,7 @@ const moneyDay = dayMoney(ymd, {
 
 lastStats = () => {
   setChargedStat(totalKwh, chargeByWbDay, moneyDay);
-  setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay, moneyDay, pvSplitEstDay);
+  setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay, moneyDay);
   setPriceStats(moneyDay, { imp: gridImportKwh, exp: gridExportKwh });
 
   document.getElementById("statGridExport").textContent =

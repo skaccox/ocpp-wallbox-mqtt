@@ -1,4 +1,19 @@
 # Changelog
+## [1.7.47] - 2026-10-02
+- CHG nella barra Grid Import viene prima di Grid Export: si chiede prima
+  quanto si e' preso e poi quanto si e' restituito, ed era l'unico punto
+  invertito rispetto a Buy e Sell
+- CHG in denaro le caselle cambiano ordine: EV Total, Grid Import, PV Saved,
+  Grid Export, Buy, Sell. Prima quello che esce, poi quello che non e' uscito
+  o e' entrato, infine le tariffe, che sono ingressi del calcolo e non
+  risultati. Cosi' i due valori verdi stanno insieme invece di alternarsi coi
+  bianchi, e EV Total sta accanto a Grid Import di cui e' una parte. In kWh
+  l'ordine resta quello di prima: li' le voci stanno in gruppi per argomento
+## [1.7.46] - 2026-10-02
+- CHG via dalla spiegazione di PV Charged la frase sulla divisione stimata dei
+  giorni piu' vecchi: allungava il testo di tutti per un caso che riguarda
+  solo i file di un vecchio formato. Col testo se ne va anche il flag che lo
+  alimentava, che nessun altro leggeva
 ## [1.7.45] - 2026-10-02
 - CHG in kWh le due voci di rete si chiamano "Import" ed "Export": sono le
   uniche che parlano di rete e l'icona lo dice gia'. In denaro restano "Grid
