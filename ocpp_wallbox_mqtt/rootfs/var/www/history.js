@@ -5,8 +5,55 @@ let viewMode = "day";
 // "both" oppure l'id di sezione di una wallbox: con il filtro attivo il
 // grafico mostra solo quella. Le statistiche restano quelle del periodo.
 let wbFilter = "both";
+
+// Statistiche in denaro invece che in energia. I prezzi arrivano dalle opzioni
+// dell'add-on, iniettati nella pagina come window.OCPP_PRICES.
+let moneyMode = false;
+
+function prices(){
+  const p = (typeof window !== "undefined" && window.OCPP_PRICES) || {};
+  return {
+    imp: Number(p.import) || 0,
+    exp: Number(p.export) || 0,
+    cur: p.currency || "€"
+  };
+}
+
+// Energia o denaro, secondo la modalita'. Il prezzo e' quello della voce:
+// acquisto per quel che si preleva, vendita per quel che si immette.
+function fmtEnergy(kwh, price){
+  const v = moneyMode ? (kwh || 0) * price : (kwh || 0);
+  return v.toFixed(2);
+}
+
+// Quanto e' costato caricare: l'energia presa dalla rete per l'auto, cioe' il
+// caricato meno la quota solare, al prezzo di acquisto. Il solare non si paga.
+function evCostKwh(kwh, pvKwh){
+  return Math.max(0, (kwh || 0) - (pvKwh || 0));
+}
+
+// Il solare finito nell'auto vale il prezzo di ACQUISTO: e' energia che non
+// hai comprato. Valutarlo al prezzo di vendita direbbe un'altra cosa, cioe'
+// quanto hai rinunciato a incassare.
+function pvSavingKwh(pvKwh){
+  return pvKwh || 0;
+}
+
+// Le quattro voci convertibili cambiano unita' insieme al contenuto.
+function applyUnits(){
+  const cur = prices().cur;
+  for (const id of ["uCharged", "uPvCharged", "uGridExport", "uGridImport"]) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = moneyMode ? cur : "kWh";
+  }
+  const btn = document.getElementById("btnMoney");
+  if (btn) {
+    btn.textContent = cur;
+    btn.classList.toggle("active", moneyMode);
+  }
+}
 let chartTypeMode = "bars";
-const chartTypeDefaults = { day: "bars", week: "bars", month: "lines" };
+const chartTypeDefaults = { day: "bars", week: "bars", month: "lines", year: "bars" };
 
 function updateChartTypeActive() {
   const sel = document.getElementById("chartType");
@@ -64,6 +111,7 @@ function loadCurrentView() {
   if (viewMode === "day")   loadHistoryForDate(currentDate);
   else if (viewMode === "week")  loadHistoryForWeek(currentDate);
   else if (viewMode === "month") loadHistoryForMonth(currentDate);
+  else if (viewMode === "year")  loadHistoryForYear(currentDate);
 }
 
 function setViewMode(mode) {
@@ -71,7 +119,10 @@ function setViewMode(mode) {
   document.getElementById("btnDay").classList.toggle("active",   mode === "day");
   document.getElementById("btnWeek").classList.toggle("active",  mode === "week");
   document.getElementById("btnMonth").classList.toggle("active", mode === "month");
-  document.getElementById("datePicker").style.display = mode === "month" ? "none" : "";
+  document.getElementById("btnYear").classList.toggle("active",  mode === "year");
+  // giorno e settimana si scelgono dal calendario, mese e anno dalle frecce
+  document.getElementById("datePicker").style.display =
+    (mode === "month" || mode === "year") ? "none" : "";
   chartTypeMode = chartTypeDefaults[mode] || "bars";
   const sel = document.getElementById("chartType");
   if (sel) {
@@ -85,6 +136,15 @@ function setViewMode(mode) {
 document.getElementById("btnDay").onclick   = () => setViewMode("day");
 document.getElementById("btnWeek").onclick  = () => setViewMode("week");
 document.getElementById("btnMonth").onclick = () => setViewMode("month");
+document.getElementById("btnYear").onclick  = () => setViewMode("year");
+
+document.getElementById("btnMoney").onclick = () => {
+  moneyMode = !moneyMode;
+  applyUnits();
+  loadCurrentView();
+};
+
+applyUnits();   // simbolo di valuta sul pulsante fin da subito
 
 document.getElementById("todayBtn").onclick = () => {
   currentDate = new Date();
@@ -155,6 +215,7 @@ document.getElementById("chartType").onchange = (e) => {
   document.getElementById("prevDay").onclick = () => {
     if (viewMode === "week")       currentDate.setDate(currentDate.getDate() - 7);
     else if (viewMode === "month") currentDate.setMonth(currentDate.getMonth() - 1);
+    else if (viewMode === "year")  currentDate.setFullYear(currentDate.getFullYear() - 1);
     else                           currentDate.setDate(currentDate.getDate() - 1);
     datePicker.valueAsDate = currentDate;
     loadCurrentView();
@@ -166,6 +227,7 @@ document.getElementById("chartType").onchange = (e) => {
     const next = new Date(currentDate);
     if (viewMode === "week")       next.setDate(next.getDate() + 7);
     else if (viewMode === "month") next.setMonth(next.getMonth() + 1);
+    else if (viewMode === "year")  next.setFullYear(next.getFullYear() + 1);
     else                           next.setDate(next.getDate() + 1);
 
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -263,8 +325,65 @@ window.zeroLinePlugin = {
 
 // ===== WEEKLY / MONTHLY VIEW =====
 
+// Un giorno passato non cambia piu', ma ricalcolarlo costa tre fetch e il
+// parse dei relativi file. La vista anno ne vorrebbe oltre mille, quindi i
+// giorni chiusi si tengono da parte. Oggi no: e' ancora in corso.
+const DAY_CACHE = "ocppDayTotals1:";
+
+function todayYmd(){
+  return ymdParts(new Date()).ymd;
+}
+
+function cachedTotals(ymd){
+  if (ymd >= todayYmd()) return null;
+  try {
+    const raw = localStorage.getItem(DAY_CACHE + ymd);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function storeTotals(ymd, t){
+  if (ymd >= todayYmd() || !t) return;
+  try { localStorage.setItem(DAY_CACHE + ymd, JSON.stringify(t)); } catch (e) {}
+}
+
+// Somma di piu' giorni in un totale solo: i massimi restano massimi, le
+// scomposizioni si fondono, e il FV per wallbox sparisce se anche un solo
+// giorno non ce l'ha (stessa regola di updatePeriodStats).
+function mergeTotals(list){
+  const ok = (list || []).filter(t => t?.hasData);
+  if (!ok.length) {
+    return { chargeKwh: 0, solarKwh: 0, importKwh: 0, exportKwh: 0,
+             pvChargedKwh: 0, evMaxKw: 0, pvMaxKw: 0, sessionCount: 0,
+             hasData: false };
+  }
+
+  const sum = k => ok.reduce((a, t) => a + (t[k] || 0), 0);
+  const max = k => ok.reduce((a, t) => Math.max(a, t[k] || 0), 0);
+
+  return {
+    chargeKwh: sum("chargeKwh"),
+    solarKwh:  sum("solarKwh"),
+    importKwh: sum("importKwh"),
+    exportKwh: sum("exportKwh"),
+    pvChargedKwh: sum("pvChargedKwh"),
+    evMaxKw: max("evMaxKw"),
+    pvMaxKw: max("pvMaxKw"),
+    sessionCount: sum("sessionCount"),
+    chargeByWb: mergeKwhByWallbox(ok.map(t => t.chargeByWb)),
+    pvChargedByWb: ok.every(t => t.pvChargedByWb)
+      ? mergeKwhByWallbox(ok.map(t => t.pvChargedByWb))
+      : null,
+    hasData: true
+  };
+}
+
 async function computeDailyTotals(d) {
   const { y, ymd } = ymdParts(d);
+
+  const cached = cachedTotals(ymd);
+  if (cached) return cached;
+
   const bust = `?_=${Date.now()}`;
   try {
     const [chargeResp, meterResp, solarResp] = await Promise.all([
@@ -334,11 +453,19 @@ async function computeDailyTotals(d) {
     const evMaxKw = minMax(evArr)?.max ?? 0;
     const pvMaxKw = minMax(normalizeSeries(solar.solarKw))?.max ?? 0;
 
-    return { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
-             sessionCount: sessionsMeta.length,
-             chargeByWb: kwhByWallbox(sessionsMeta),
-             pvChargedByWb: pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null,
-             hasData: true };
+    const out = { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
+                  sessionCount: sessionsMeta.length,
+                  chargeByWb: kwhByWallbox(sessionsMeta),
+                  // Un giorno senza ricariche non e' un giorno "senza dato":
+                  // la sua scomposizione e' vuota e vale zero. Mettendo null
+                  // bastava un giorno di sosta per far sparire la
+                  // scomposizione del FV dell'intera settimana o del mese.
+                  pvChargedByWb: sessionsMeta.length === 0
+                    ? {}
+                    : (pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null),
+                  hasData: true };
+    storeTotals(ymd, out);
+    return out;
   } catch {
     return { chargeKwh: 0, solarKwh: 0, importKwh: 0, exportKwh: 0, pvChargedKwh: 0, evMaxKw: 0, pvMaxKw: 0, hasData: false };
   }
@@ -375,6 +502,30 @@ async function loadHistoryForMonth(date) {
 
   drawBarChart(labels, totals, title);
   updatePeriodStats(totals);
+}
+
+// Un mese per barra. I giorni si caricano un mese alla volta: tutti insieme
+// sarebbero oltre mille richieste in parallelo, e col caching dei giorni
+// chiusi la prima apertura e' l'unica lenta.
+async function loadHistoryForYear(date) {
+  const year = date.getFullYear();
+  const oggi = new Date();
+  const ultimoMese = (year === oggi.getFullYear()) ? oggi.getMonth() : 11;
+
+  const mesi = [];
+  for (let m = 0; m <= ultimoMese; m++) {
+    const giorni = Array.from(
+      { length: new Date(year, m + 1, 0).getDate() },
+      (_, i) => new Date(year, m, i + 1)
+    );
+    mesi.push(mergeTotals(await Promise.all(giorni.map(g => computeDailyTotals(g)))));
+  }
+
+  const labels = mesi.map((_, m) =>
+    new Date(year, m, 1).toLocaleDateString([], { month: "short" }));
+
+  drawBarChart(labels, mesi, String(year));
+  updatePeriodStats(mesi);
 }
 
 function applyChartTypeMode() {
@@ -594,10 +745,31 @@ function setStatWithSplit(id, text, parts){
   }
 }
 
-function setChargedStat(totKwh, byWb){
+// In denaro il totale caricato diventa quanto e' costato: serve quindi anche
+// la quota solare, che non si paga. Senza la scomposizione del FV per wallbox
+// il costo per wallbox non e' calcolabile e le righe spariscono: meglio
+// nessun dettaglio che un dettaglio inventato.
+function setChargedStat(totKwh, byWb, totPv, pvByWb){
+  const p = prices();
+
+  if (!moneyMode) {
+    setStatWithSplit("statCharged",
+      (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) : "—",
+      wbBreakdownParts(byWb, ""));
+    return;
+  }
+
+  const costo = evCostKwh(totKwh, totPv) * p.imp;
+  const parti = {};
+  if (pvByWb) {
+    for (const wb of Object.keys(byWb || {})) {
+      parti[wb] = evCostKwh(byWb[wb], (pvByWb || {})[wb]) * p.imp;
+    }
+  }
+
   setStatWithSplit("statCharged",
-    (totKwh > 0 || Object.keys(byWb || {}).length) ? totKwh.toFixed(2) : "—",
-    wbBreakdownParts(byWb, ""));
+    (totKwh > 0 || Object.keys(byWb || {}).length) ? costo.toFixed(2) : "—",
+    pvByWb ? wbBreakdownParts(parti, "") : []);
 }
 
 // "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
@@ -619,9 +791,17 @@ function wbPvPctParts(pvByWb, chargeByWb){
 // nel periodo): si mostra solo il totale, senza inventare una scomposizione.
 function setPvStats(totPv, totCharge, pvByWb, chargeByWb){
   const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
+  const p = prices();
 
-  setStatWithSplit("statPvCharged", totPv > 0 ? totPv.toFixed(2) : "—",
-                   wbBreakdownParts(pvByWb, ""));
+  // in denaro il FV caricato diventa il risparmio: energia non comprata
+  const valore = moneyMode ? pvSavingKwh(totPv) * p.imp : totPv;
+  const parti = {};
+  for (const wb of Object.keys(pvByWb || {})) {
+    parti[wb] = moneyMode ? pvSavingKwh(pvByWb[wb]) * p.imp : pvByWb[wb];
+  }
+
+  setStatWithSplit("statPvCharged", totPv > 0 ? valore.toFixed(2) : "—",
+                   wbBreakdownParts(pvByWb ? parti : null, ""));
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }
@@ -641,20 +821,20 @@ function updatePeriodStats(totals) {
   document.getElementById("statEv").textContent       = evMax ? evMax.toFixed(2) : "—";
   const totCharge = sum("chargeKwh");
   const byWb      = mergeKwhByWallbox(totals.map(t => t.chargeByWb));
-  setChargedStat(totCharge, byWb);
   const totPvCharged = sum("pvChargedKwh");
 
   // Basta un giorno del periodo senza il dato per wallbox e la scomposizione
   // salta: sommare solo i giorni che ce l'hanno darebbe percentuali false.
   const pvSplitOk = totals.every(t => !t.hasData || t.pvChargedByWb);
-  setPvStats(totPvCharged, totCharge,
-             pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null,
-             byWb);
+  const pvByWb = pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null;
+
+  setChargedStat(totCharge, byWb, totPvCharged, pvByWb);
+  setPvStats(totPvCharged, totCharge, pvByWb, byWb);
   document.getElementById("statSessions").textContent = sessions || "—";
   document.getElementById("statPvMax").textContent    = pvMax ? pvMax.toFixed(2) : "—";
   document.getElementById("statSolar").textContent    = sum("solarKwh").toFixed(2);
-  document.getElementById("statGridImport").textContent = sum("importKwh").toFixed(2);
-  document.getElementById("statGridExport").textContent = sum("exportKwh").toFixed(2);
+  document.getElementById("statGridImport").textContent = fmtEnergy(sum("importKwh"), prices().imp);
+  document.getElementById("statGridExport").textContent = fmtEnergy(sum("exportKwh"), prices().exp);
 }
 
 function updateTodayHighlight() {
@@ -954,7 +1134,6 @@ document.getElementById("statEv").textContent =
   evMM ? evMM.max.toFixed(2) : "—";
 
 const totalKwh = sessionsMeta.reduce((acc,s)=>acc+(s.kwh||0),0);
-setChargedStat(totalKwh, kwhByWallbox(sessionsMeta));
 
 // PV Charged: quanta energia caricata nell'EV è venuta dal solare.
 // Con session_pv_kwh (col 11) è un valore vero del server; senza, si stima
@@ -981,9 +1160,13 @@ if (pvFromFile != null) {
 }
 // la scomposizione del FV ha senso solo se il valore viene dalle sessioni:
 // la stima per integrazione usa la rete, che e' una sola per tutte
-setPvStats(pvChargedKwh, totalKwh,
-           pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null,
-           kwhByWallbox(sessionsMeta));
+const chargeByWbDay = kwhByWallbox(sessionsMeta);
+const pvByWbDay = pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null;
+
+// prima il FV, poi il caricato: in denaro quest'ultimo ha bisogno della quota
+// solare per sapere quanto e' stato davvero pagato
+setChargedStat(totalKwh, chargeByWbDay, pvChargedKwh, pvByWbDay);
+setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay);
 
 document.getElementById("statPvMax").textContent =
   pvMM ? pvMM.max.toFixed(2) : "—";
@@ -1007,9 +1190,9 @@ for (let i = 1; i < meter.gridKw.length; i++) {
   else gridImportKwh += avg * dtH;
 }
 document.getElementById("statGridExport").textContent =
-  gridExportKwh > 0 ? gridExportKwh.toFixed(2) : "—";
+  gridExportKwh > 0 ? fmtEnergy(gridExportKwh, prices().exp) : "—";
 document.getElementById("statGridImport").textContent =
-  gridImportKwh > 0 ? gridImportKwh.toFixed(2) : "—";
+  gridImportKwh > 0 ? fmtEnergy(gridImportKwh, prices().imp) : "—";
 
 document.getElementById("statSessions").textContent =
   sessionsMeta.length;

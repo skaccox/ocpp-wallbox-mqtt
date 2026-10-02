@@ -335,6 +335,10 @@ body.history-mode #status {
 /* Icona e unita' di misura sullo stesso rigo, sopra al titolo. E' un <em> e
    non uno <span> perche' .historyStats span e' flex in colonna: un span
    metterebbe l'unita' sotto all'icona invece che accanto. */
+/* l'unita' e' un <i> per non ricadere in .historyStats span (flex in colonna),
+   quindi va tolto il corsivo */
+.historyStats .statIcon .u { font-style: normal; }
+
 .historyStats .statIcon {
   display: inline-flex;
   align-items: center;

@@ -408,6 +408,40 @@ version and commit are in the panel.
 
 ---
 
+### 💶 Energy prices
+
+#### `price_import` / `price_export` / `currency`
+What a kWh costs when you buy it from the grid, what you are paid when you
+feed one in, and the symbol to print. Decimal comma is accepted.
+
+These are **UI-only**: they never reach `ocpp.ini` and the Perl server knows
+nothing about them. They exist so the stats bar in **GRAPH** can show money
+instead of energy, by pressing the currency button next to DAY/WEEK/MONTH/YEAR.
+
+What each figure becomes when the button is on:
+
+| stat | in money |
+|---|---|
+| `EV Total` | what charging **cost**: the energy taken from the grid for the car — charged minus the solar share — at the buying price |
+| `PV Charged` | what the solar **saved**: energy you did not have to buy, at the buying price |
+| `Grid Import` | spent, at the buying price |
+| `Grid Export` | earned, at the selling price |
+
+`EV Max`, `PV Max`, `PV Total` and `Sessions` stay as they are: a power or a
+count has no price, and how much of the production was self-consumed rather
+than exported is not known from these files.
+
+> ℹ️ Valuing self-consumed solar at the **buying** price answers "how much did
+> I avoid spending". Valuing it at the selling price would answer a different
+> question — "how much did I give up by not selling it" — and would give
+> smaller numbers. The first is the usual reading for a home plant.
+
+The per-wallbox breakdown follows: the cost of each wallbox needs its own
+solar share, so when that is missing (see `PV Charged` above) the breakdown
+under `EV Total` disappears rather than being guessed.
+
+---
+
 ### 📁 Data directory
 
 #### `data_dir`

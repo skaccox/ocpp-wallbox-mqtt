@@ -1,4 +1,19 @@
 # Changelog
+## [1.7.31] - 2026-10-02
+- ADD opzioni price_import, price_export e currency: il prezzo dell'energia
+  comprata e di quella immessa. Servono solo alla UI, non vanno in ocpp.ini
+- ADD pulsante valuta in GRAPH: la barra statistiche passa dai kWh ai soldi.
+  EV Total diventa quanto e' costato caricare (il caricato meno la quota
+  solare, al prezzo di acquisto), PV Charged il risparmio, Grid Import la
+  spesa e Grid Export l'incasso. Le scomposizioni per wallbox seguono
+- FIX in settimana e mese la scomposizione per wallbox del FV spariva appena
+  un giorno del periodo non aveva ricariche: veniva trattato come "dato
+  mancante" invece che come giorno a zero. Bastava una sosta per perderla
+- ADD vista YEAR: dodici barre, una per mese, con le stesse statistiche e le
+  stesse scomposizioni per wallbox delle altre viste
+- ADD i totali dei giorni passati finiscono in cache nel browser: un anno
+  sarebbero oltre mille richieste a ogni apertura, e un giorno chiuso non
+  cambia piu'. Oggi non viene mai messo in cache
 ## [1.7.30] - 2026-10-01
 - CHG le label della barra statistiche non hanno piu' i due punti
 - CHG "PV %" torna col simbolo sui valori ("98%", "Giardino 98%") e l'unita'

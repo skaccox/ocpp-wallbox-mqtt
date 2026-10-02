@@ -53,6 +53,13 @@ WALLBOX_MQTT_NAME="$(bashio::config 'wallbox_mqtt_name')"
 DATA_DIR="$(bashio::config 'data_dir')"
 DEFAULT_VIEW="$(bashio::config 'default_view')"
 
+# Prezzi dell'energia: servono solo alla UI per mostrare gli euro al posto dei
+# kWh, quindi non finiscono in ocpp.ini. La virgola decimale e' un errore
+# facile da fare nelle opzioni, meglio accettarla.
+PRICE_IMPORT="$(bashio::config 'price_import' | tr ',' '.')"
+PRICE_EXPORT="$(bashio::config 'price_export' | tr ',' '.')"
+CURRENCY="$(bashio::config 'currency')"
+
 # ---- Sorgente del codice (repo/branch configurabili dalle opzioni) ----
 DEFAULT_CODE_REPO="https://gitlab.com/skaccox/ocpp-mqtt-perl-server.git"
 DEFAULT_CODE_REF="main"
@@ -662,6 +669,9 @@ export OCPP_DATA_DIR="${APP_DIR}/${DATA_DIR:-data}"
 export OCPP_LOG="${APP_DIR}/ocpp.log"
 export OCPP_DEFAULT_VIEW="${DEFAULT_VIEW:-live}"
 export OCPP_INI="${INI_FILE}"
+export OCPP_PRICE_IMPORT="${PRICE_IMPORT}"
+export OCPP_PRICE_EXPORT="${PRICE_EXPORT}"
+export OCPP_CURRENCY="${CURRENCY}"
 export OCPP_APP_DIR="${APP_DIR}"
 export OCPP_CODE_REPO="${CODE_REPO}"
 export OCPP_CODE_REF="${CODE_REF}"
@@ -683,6 +693,21 @@ INDEX        = "/var/www/index.html"
 DATA_DIR     = os.environ["OCPP_DATA_DIR"]
 DEFAULT_VIEW = os.environ.get("OCPP_DEFAULT_VIEW", "live")
 INI          = os.environ.get("OCPP_INI", "")
+
+
+def _float(name, default):
+    try:
+        return float(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
+
+
+# Prezzi per la sola UI: il server perl non li usa.
+PRICES = {
+    "import":   _float("OCPP_PRICE_IMPORT", 0.0),
+    "export":   _float("OCPP_PRICE_EXPORT", 0.0),
+    "currency": os.environ.get("OCPP_CURRENCY") or "€",
+}
 
 APP_DIR      = os.environ.get("OCPP_APP_DIR", "")
 CODE_REPO    = os.environ.get("OCPP_CODE_REPO", "")
@@ -1162,6 +1187,7 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "default_view": DEFAULT_VIEW,
                 "wallbox_names": wallbox_names(INI),
+                "prices": PRICES,
             }).encode())
             return
 
@@ -1180,6 +1206,7 @@ class H(BaseHTTPRequestHandler):
                     '<script>'
                     f'window.OCPP_DEFAULT_VIEW="{DEFAULT_VIEW}";'
                     f'window.OCPP_WALLBOX_NAMES={json.dumps(wallbox_names(INI))};'
+                    f'window.OCPP_PRICES={json.dumps(PRICES)};'
                     '</script>'
                 ).encode()
                 html = html.replace(b"</head>", inject + b"</head>", 1)
