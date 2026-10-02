@@ -1,4 +1,22 @@
 # Changelog
+## [1.7.45] - 2026-10-02
+- CHG in kWh le due voci di rete si chiamano "Import" ed "Export": sono le
+  uniche che parlano di rete e l'icona lo dice gia'. In denaro restano "Grid
+  Import" e "Grid Export", se no accanto a Buy e Sell quattro parole corte si
+  confonderebbero fra loro
+## [1.7.44] - 2026-10-02
+- ADD col tasto valuta anche il grafico di settimana, mese e anno passa agli
+  euro: EV Charged diventa il costo (scomposto per wallbox come prima), Grid
+  Import la spesa, Grid Export l'incasso. Ogni giorno col listino di quel
+  giorno, come gia' fa la barra delle statistiche
+- CHG in denaro la serie Solar diventa PV Saved: la produzione non ha un
+  prezzo solo, perche' una parte e' autoconsumata e una venduta, e dai file
+  non si sa come si divide. PV Saved un prezzo ce l'ha
+- CHG asse e tooltip del grafico seguono la modalita', e in denaro le righe
+  "Max" spariscono: una potenza non ha un prezzo
+- CHG il grafico del giorno resta in kW: quelle sono potenze istantanee, in
+  euro diventerebbero euro all'ora. In quella vista il tasto valuta continua a
+  ridisegnare solo le statistiche
 ## [1.7.43] - 2026-10-02
 - FIX su mobile il campo della data si stringe a 104px: era largo di suo molto
   piu' del suo contenuto ("02/10/2026" e l'icona) e mandava a capo la riga

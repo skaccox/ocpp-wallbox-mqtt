@@ -23,6 +23,11 @@ let lastStats = null;
 // stimata invece che letta: la spiegazione di PV Charged lo dice.
 let lastPvEst = false;
 
+// Come ridisegnare il grafico a periodo quando cambia la valuta. Resta null
+// nella vista giorno: li' le curve sono potenze istantanee in kW, e una
+// potenza in euro diventerebbe EUR/h, che non vuol dire niente.
+let lastChart = null;
+
 // Calibrazione dei kWh di rete sul contatore del distributore. Vale solo per
 // Grid Import e Grid Export: EV e FV arrivano da altri sensori e non si
 // toccano. Si applica all'origine, dove l'energia viene integrata, cosi' ogni
@@ -168,6 +173,14 @@ function applyUnits(){
   // risparmiare", e il nome deve dirlo
   const lbl = document.getElementById("lblPvCharged");
   if (lbl) lbl.textContent = moneyMode ? "PV Saved" : "PV Charged";
+
+  // In kWh "Grid" non serve: sono le uniche due voci che parlano di rete e
+  // l'icona lo dice gia'. In denaro resta, se no accanto a Buy e Sell quattro
+  // parole corte - Import, Export, Buy, Sell - si confonderebbero fra loro.
+  for (const voce of ["Import", "Export"]) {
+    const el = document.getElementById(`lblGrid${voce}`);
+    if (el) el.textContent = moneyMode ? `Grid ${voce}` : voce;
+  }
 
   for (const id of ["uPriceImport", "uPriceExport"]) {
     const el = document.getElementById(id);
@@ -497,8 +510,11 @@ document.getElementById("btnYear").onclick  = () => setViewMode("year");
 document.getElementById("btnMoney").onclick = () => {
   moneyMode = !moneyMode;
   applyUnits();
+
   if (lastStats) lastStats();
   else loadCurrentView();
+
+  if (lastChart) lastChart();
 };
 
 applyUnits();   // simbolo di valuta sul pulsante fin da subito
@@ -935,6 +951,59 @@ function applyChartTypeMode() {
   historyChart.update();
 }
 
+// Valore di una serie del grafico a periodo nella modalita' corrente.
+//
+// In denaro non si moltiplica niente qui: i soldi di ogni giorno sono gia'
+// calcolati col listino di QUEL giorno, cosi' un periodo a cavallo di un
+// cambio tariffa resta giusto anche nelle barre.
+//
+// "solar" fa eccezione: la produzione non ha un prezzo solo, perche' una parte
+// e' autoconsumata e una parte venduta, e dai file non sappiamo come si divide.
+// In denaro quella serie diventa PV Saved, che un prezzo ce l'ha.
+function barValue(t, metric, wb){
+  if (!t?.hasData) return null;
+
+  const m = moneyMode ? (t.money || {}) : null;
+  let v;
+
+  if (metric === "ev") {
+    v = wb
+      ? ((m ? m.costByWb : t.chargeByWb) || {})[wb] || 0
+      : (m ? m.costEv : t.chargeKwh) || 0;
+  } else if (metric === "solar") {
+    v = (m ? m.savingPv : t.solarKwh) || 0;
+  } else if (metric === "export") {
+    v = (m ? m.revenueExport : t.exportKwh) || 0;
+  } else if (metric === "import") {
+    v = (m ? m.costImport : t.importKwh) || 0;
+  } else {
+    return null;
+  }
+
+  return +v.toFixed(2);
+}
+
+// "(kWh)" o "(EUR)" in coda al nome della serie, secondo la modalita'
+function serieUnit(){
+  return moneyMode ? `(${priceTables().cur})` : "(kWh)";
+}
+
+function serieLabel(nome){
+  return `${nome} ${serieUnit()}`;
+}
+
+// In denaro il nome cambia, non solo l'unita': non e' piu' quanto il sole ha
+// prodotto ma quanto ha fatto risparmiare.
+function solarLabel(){
+  return serieLabel(moneyMode ? "PV Saved" : "Solar");
+}
+
+// Energia o soldi, per i tooltip del grafico.
+function fmtSerie(v){
+  if (v === null || v === undefined) return "—";
+  return moneyMode ? fmtMoney(v) : `${fmtNum(v, 2)} kWh`;
+}
+
 // Elenco delle wallbox presenti nel periodo, in ordine stabile.
 function wallboxesInTotals(totals){
   const set = new Set();
@@ -953,23 +1022,23 @@ function evBarDatasets(totals){
 
   if (!wbs.length || !wbIdentifyNeeded(wbs.length)) {
     return [{
-      label: "EV Charged (kWh)",
+      label: serieLabel("EV Charged"),
       metric: "ev",
       stack: "ev",
       primary: true,
-      data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null),
+      data: totals.map(t => barValue(t, "ev")),
       backgroundColor: "rgba(34,197,94,0.75)",
       borderColor: "#22c55e", borderWidth: 1
     }];
   }
 
   return wbs.map((wb, i) => ({
-    label: `${wbShort(wb)} (kWh)`,
+    label: `${wbShort(wb)} ${serieUnit()}`,
     metric: "ev",
     stack: "ev",
     wbKey: wb,
     primary: i === 0,
-    data: totals.map(t => t.hasData ? +((t.chargeByWb || {})[wb] || 0).toFixed(2) : null),
+    data: totals.map(t => barValue(t, "ev", wb)),
     backgroundColor: WB_BAR_FILL[i % WB_BAR_FILL.length],
     borderColor: WB_COLORS[i % WB_COLORS.length],
     borderWidth: 1
@@ -977,6 +1046,10 @@ function evBarDatasets(totals){
 }
 
 function drawBarChart(labels, totals, title) {
+  // Il tasto valuta ridisegna da qui, con gli stessi totali gia' in mano:
+  // nessuna richiesta di rete, nessun ricalcolo.
+  lastChart = () => drawBarChart(labels, totals, title);
+
   const canvas = document.getElementById("historyChart");
   const ctx = canvas.getContext("2d");
   if (historyChart) historyChart.destroy();
@@ -992,36 +1065,36 @@ function drawBarChart(labels, totals, title) {
         // stesso gruppo "ev" (l'altezza del gruppo resta il totale del giorno).
         ...evBarDatasets(totals),
         {
-          label: "Solar (kWh)",
+          label: solarLabel(),
           metric: "solar",
           stack: "solar",
-          data: totals.map(t => t.hasData ? +t.solarKwh.toFixed(2) : null),
+          data: totals.map(t => barValue(t, "solar")),
           backgroundColor: "rgba(56,189,248,0.75)",
           borderColor: "#38bdf8", borderWidth: 1
         },
         {
-          label: "Grid Export (kWh)",
+          label: serieLabel("Grid Export"),
           metric: "export",
           stack: "export",
-          data: totals.map(t => t.hasData ? +t.exportKwh.toFixed(2) : null),
+          data: totals.map(t => barValue(t, "export")),
           backgroundColor: "rgba(139,92,246,0.75)",
           borderColor: "#8b5cf6", borderWidth: 1
         },
         {
-          label: "Grid Import (kWh)",
+          label: serieLabel("Grid Import"),
           metric: "import",
           stack: "import",
-          data: totals.map(t => t.hasData ? +t.importKwh.toFixed(2) : null),
+          data: totals.map(t => barValue(t, "import")),
           backgroundColor: "rgba(244,63,94,0.75)",
           borderColor: "#f43f5e", borderWidth: 1
         },
         // Linee di trend: stessi dati delle barre, mostrate in modalita' "lines".
         // Ognuna ha il suo stack: su un asse stacked i dataset dello stesso
         // gruppo si sommerebbero, e le linee devono restare indipendenti.
-        { type:"line", label:"_trend_ev",     metric:"ev",     displayLabel:"EV Charged (kWh)",  stack:"trend_ev",     data: totals.map(t => t.hasData ? +t.chargeKwh.toFixed(2) : null), borderColor:"#22c55e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_solar",  metric:"solar",  displayLabel:"Solar (kWh)",       stack:"trend_solar",  data: totals.map(t => t.hasData ? +t.solarKwh.toFixed(2)  : null), borderColor:"#38bdf8", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_export", metric:"export", displayLabel:"Grid Export (kWh)", stack:"trend_export", data: totals.map(t => t.hasData ? +t.exportKwh.toFixed(2) : null), borderColor:"#8b5cf6", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
-        { type:"line", label:"_trend_import", metric:"import", displayLabel:"Grid Import (kWh)", stack:"trend_import", data: totals.map(t => t.hasData ? +t.importKwh.toFixed(2) : null), borderColor:"#f43f5e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 }
+        { type:"line", label:"_trend_ev",     metric:"ev",     displayLabel:serieLabel("EV Charged"),  stack:"trend_ev",     data: totals.map(t => barValue(t, "ev")), borderColor:"#22c55e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_solar",  metric:"solar",  displayLabel:solarLabel(),       stack:"trend_solar",  data: totals.map(t => barValue(t, "solar")), borderColor:"#38bdf8", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_export", metric:"export", displayLabel:serieLabel("Grid Export"), stack:"trend_export", data: totals.map(t => barValue(t, "export")), borderColor:"#8b5cf6", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 },
+        { type:"line", label:"_trend_import", metric:"import", displayLabel:serieLabel("Grid Import"), stack:"trend_import", data: totals.map(t => barValue(t, "import")), borderColor:"#f43f5e", borderWidth:2, pointRadius:3, pointHoverRadius:7, fill:false, tension:0.2, order:0 }
 
       ]
     },
@@ -1068,20 +1141,24 @@ function drawBarChart(labels, totals, title) {
               // La metrica e' una proprieta' del dataset, non la sua posizione:
               // aggiungere o togliere dataset non sposta piu' niente.
               const metric = ds.metric;
-              const val = context.parsed.y;
-              const lines = [`Total: ${val !== null ? fmtNum(val, 2) + " kWh" : "—"}`];
+              const lines = [`Total: ${fmtSerie(context.parsed.y)}`];
 
               // i "Max" sono valori del giorno, non del singolo dataset: con le
-              // barre per wallbox li mostriamo una volta sola, sulla prima
-              if (metric === "ev"    && ds.primary && t.evMaxKw) lines.push(`Max: ${fmtNum(t.evMaxKw, 2)} kW`);
-              if (metric === "solar" && t.pvMaxKw)               lines.push(`Max: ${fmtNum(t.pvMaxKw, 2)} kW`);
+              // barre per wallbox li mostriamo una volta sola, sulla prima.
+              // In denaro non si mostrano: una potenza non ha un prezzo, come
+              // nella barra delle statistiche.
+              if (!moneyMode) {
+                if (metric === "ev"    && ds.primary && t.evMaxKw) lines.push(`Max: ${fmtNum(t.evMaxKw, 2)} kW`);
+                if (metric === "solar" && t.pvMaxKw)               lines.push(`Max: ${fmtNum(t.pvMaxKw, 2)} kW`);
+              }
 
               // Scomposizione per wallbox: serve solo quando la barra EV e'
               // aggregata. Se le barre sono gia' per wallbox sarebbe ridondante.
               if (metric === "ev" && !ds.wbKey) {
-                const keys = Object.keys(t.chargeByWb || {}).sort();
+                const perWb = (moneyMode ? t.money?.costByWb : t.chargeByWb) || {};
+                const keys = Object.keys(perWb).sort();
                 if (keys.length > 1) {
-                  for (const wb of keys) lines.push(`${wbShort(wb)}: ${fmtNum(t.chargeByWb[wb], 2)} kWh`);
+                  for (const wb of keys) lines.push(`${wbShort(wb)}: ${fmtSerie(perWb[wb])}`);
                 }
               }
               return lines;
@@ -1094,7 +1171,16 @@ function drawBarChart(labels, totals, title) {
       // restano gruppi affiancati, uno per metrica, come prima.
       scales: {
         x: { stacked: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { stacked: true, beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } }
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            color: "#9ca3af",
+            // in denaro la scala e' in euro: senza simbolo si leggerebbe kWh
+            callback: (v) => moneyMode ? fmtMoney(v) : v
+          },
+          grid: { color: "rgba(255,255,255,0.05)" }
+        }
       }
     }
   });
@@ -2073,6 +2159,9 @@ function perWallboxDatasets(charge){
 }
 
 function drawHistoryChart(charge, meter, solar, sessions, sessionsMeta){
+  // Il grafico del giorno sono curve di potenza: col tasto valuta non cambia
+  // niente, e non deve restare in piedi il modo di ridisegnare quello prima.
+  lastChart = null;
 
   const canvas = document.getElementById("historyChart");
   const ctx = canvas.getContext("2d");

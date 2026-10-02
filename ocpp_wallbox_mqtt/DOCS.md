@@ -460,6 +460,23 @@ with the date it started from.
 count has no price, and how much of the production was self-consumed rather
 than exported is not known from these files.
 
+#### The chart follows, in WEEK/MONTH/YEAR
+
+The bars of the period views switch to money too, each day (or month) priced
+with the tariff in force on that day, so a period straddling a tariff change
+still adds up. `EV Charged` becomes the cost, split per wallbox as before,
+`Grid Import` the spend and `Grid Export` the revenue.
+
+The `Solar` series is the exception: production has no single price, since
+part of it is self-consumed and part sold, and these files do not say how it
+splits. In money that series becomes **`PV Saved`**, which does have a price.
+The `Max` lines of the tooltips disappear, as they do in the stats bar.
+
+The **DAY chart stays in kW** whatever the button says: those curves are
+instantaneous power, and a power in money would be currency per hour, which
+reads as nothing. Pressing the button in DAY view therefore redraws only the
+stats bar.
+
 > ℹ️ Valuing self-consumed solar at the **buying** price answers "how much did
 > I avoid spending". Valuing it at the selling price would answer a different
 > question — "how much did I give up by not selling it" — and would give
