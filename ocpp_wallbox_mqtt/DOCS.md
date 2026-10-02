@@ -442,6 +442,31 @@ under `EV Total` disappears rather than being guessed.
 
 ---
 
+### 📐 Grid meter calibration
+
+#### `grid_import_factor` / `grid_export_factor`
+Multipliers applied to the **Grid Import** and **Grid Export** kWh. Default
+`1.0`, i.e. no correction.
+
+They exist to calibrate against the distributor's meter, which rarely agrees
+to the last decimal with the meter feeding this add-on. Typical values are
+**0.97 for import** and **0.93 for export**.
+
+The correction is applied **at the source**, where the energy is integrated,
+so everything downstream inherits it: the kWh in the stats bar, the same
+figures in money, the bars of WEEK/MONTH/YEAR, the period totals and any
+derived figure.
+
+> ⚠️ They touch **only** those two readings. `EV Total`, `PV Charged`,
+> `PV Total` and the per-wallbox breakdowns come from other sensors and are
+> left alone, as is the `Grid Power` curve of the daily chart, which is an
+> instantaneous power and not one of the two totals.
+
+Changing a factor also invalidates the cached day totals, so past days are
+recomputed with the new value instead of keeping the old numbers.
+
+---
+
 ### 📁 Data directory
 
 #### `data_dir`

@@ -10,6 +10,18 @@ let wbFilter = "both";
 // dell'add-on, iniettati nella pagina come window.OCPP_PRICES.
 let moneyMode = false;
 
+// Calibrazione dei kWh di rete sul contatore del distributore. Vale solo per
+// Grid Import e Grid Export: EV e FV arrivano da altri sensori e non si
+// toccano. Si applica all'origine, dove l'energia viene integrata, cosi' ogni
+// conto a valle - statistiche, euro, barre, totali di periodo - la eredita.
+function gridFactors(){
+  const f = (typeof window !== "undefined" && window.OCPP_GRID_FACTORS) || {};
+  return {
+    imp: Number(f.import) > 0 ? Number(f.import) : 1,
+    exp: Number(f.export) > 0 ? Number(f.export) : 1
+  };
+}
+
 function prices(){
   const p = (typeof window !== "undefined" && window.OCPP_PRICES) || {};
   return {
@@ -341,7 +353,14 @@ window.zeroLinePlugin = {
 // Un giorno passato non cambia piu', ma ricalcolarlo costa tre fetch e il
 // parse dei relativi file. La vista anno ne vorrebbe oltre mille, quindi i
 // giorni chiusi si tengono da parte. Oggi no: e' ancora in corso.
+// I fattori fanno parte della chiave: cambiandoli i giorni gia' in cache
+// sarebbero rimasti ai numeri vecchi.
 const DAY_CACHE = "ocppDayTotals1:";
+
+function dayCacheKey(ymd){
+  const f = gridFactors();
+  return `${DAY_CACHE}${f.imp}:${f.exp}:${ymd}`;
+}
 
 function todayYmd(){
   return ymdParts(new Date()).ymd;
@@ -350,14 +369,14 @@ function todayYmd(){
 function cachedTotals(ymd){
   if (ymd >= todayYmd()) return null;
   try {
-    const raw = localStorage.getItem(DAY_CACHE + ymd);
+    const raw = localStorage.getItem(dayCacheKey(ymd));
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
 
 function storeTotals(ymd, t){
   if (ymd >= todayYmd() || !t) return;
-  try { localStorage.setItem(DAY_CACHE + ymd, JSON.stringify(t)); } catch (e) {}
+  try { localStorage.setItem(dayCacheKey(ymd), JSON.stringify(t)); } catch (e) {}
 }
 
 // Somma di piu' giorni in un totale solo: i massimi restano massimi, le
@@ -462,6 +481,11 @@ async function computeDailyTotals(d) {
       }
       if (chargeKwh > 0 && pvChargedKwh > chargeKwh) pvChargedKwh = chargeKwh;
     }
+
+    // calibrazione prima di uscire dalla funzione: da qui in poi questi due
+    // numeri finiscono in statistiche, euro, barre e aggregati di periodo
+    importKwh *= gridFactors().imp;
+    exportKwh *= gridFactors().exp;
 
     const evMaxKw = minMax(evArr)?.max ?? 0;
     const pvMaxKw = minMax(normalizeSeries(solar.solarKw))?.max ?? 0;
@@ -1238,6 +1262,9 @@ for (let i = 1; i < meter.gridKw.length; i++) {
   if (avg < 0) gridExportKwh += Math.abs(avg) * dtH;
   else gridImportKwh += avg * dtH;
 }
+gridExportKwh *= gridFactors().exp;
+gridImportKwh *= gridFactors().imp;
+
 document.getElementById("statGridExport").textContent =
   gridExportKwh > 0 ? fmtEnergy(gridExportKwh, prices().exp) : "—";
 document.getElementById("statGridImport").textContent =

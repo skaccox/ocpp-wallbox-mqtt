@@ -60,6 +60,12 @@ PRICE_IMPORT="$(bashio::config 'price_import' | tr ',' '.')"
 PRICE_EXPORT="$(bashio::config 'price_export' | tr ',' '.')"
 CURRENCY="$(bashio::config 'currency')"
 
+# Calibrazione dei kWh di rete sul contatore del distributore: moltiplicano
+# import ed export prima di qualunque conto. Come i prezzi, non arrivano al
+# server perl.
+GRID_IMPORT_FACTOR="$(bashio::config 'grid_import_factor' | tr ',' '.')"
+GRID_EXPORT_FACTOR="$(bashio::config 'grid_export_factor' | tr ',' '.')"
+
 # ---- Sorgente del codice (repo/branch configurabili dalle opzioni) ----
 DEFAULT_CODE_REPO="https://gitlab.com/skaccox/ocpp-mqtt-perl-server.git"
 DEFAULT_CODE_REF="main"
@@ -672,6 +678,8 @@ export OCPP_INI="${INI_FILE}"
 export OCPP_PRICE_IMPORT="${PRICE_IMPORT}"
 export OCPP_PRICE_EXPORT="${PRICE_EXPORT}"
 export OCPP_CURRENCY="${CURRENCY}"
+export OCPP_GRID_IMPORT_FACTOR="${GRID_IMPORT_FACTOR}"
+export OCPP_GRID_EXPORT_FACTOR="${GRID_EXPORT_FACTOR}"
 export OCPP_APP_DIR="${APP_DIR}"
 export OCPP_CODE_REPO="${CODE_REPO}"
 export OCPP_CODE_REF="${CODE_REF}"
@@ -707,6 +715,13 @@ PRICES = {
     "import":   _float("OCPP_PRICE_IMPORT", 0.0),
     "export":   _float("OCPP_PRICE_EXPORT", 0.0),
     "currency": os.environ.get("OCPP_CURRENCY") or "€",
+}
+
+# Calibrazione dei kWh di rete sul contatore del distributore. Zero o valori
+# assurdi azzererebbero le statistiche: si torna a 1.
+GRID_FACTORS = {
+    "import": _float("OCPP_GRID_IMPORT_FACTOR", 1.0) or 1.0,
+    "export": _float("OCPP_GRID_EXPORT_FACTOR", 1.0) or 1.0,
 }
 
 APP_DIR      = os.environ.get("OCPP_APP_DIR", "")
@@ -1188,6 +1203,7 @@ class H(BaseHTTPRequestHandler):
                 "default_view": DEFAULT_VIEW,
                 "wallbox_names": wallbox_names(INI),
                 "prices": PRICES,
+                "grid_factors": GRID_FACTORS,
             }).encode())
             return
 
@@ -1207,6 +1223,7 @@ class H(BaseHTTPRequestHandler):
                     f'window.OCPP_DEFAULT_VIEW="{DEFAULT_VIEW}";'
                     f'window.OCPP_WALLBOX_NAMES={json.dumps(wallbox_names(INI))};'
                     f'window.OCPP_PRICES={json.dumps(PRICES)};'
+                    f'window.OCPP_GRID_FACTORS={json.dumps(GRID_FACTORS)};'
                     '</script>'
                 ).encode()
                 html = html.replace(b"</head>", inject + b"</head>", 1)

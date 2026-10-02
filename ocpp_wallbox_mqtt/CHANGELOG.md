@@ -1,4 +1,13 @@
 # Changelog
+## [1.7.34] - 2026-10-02
+- CHG la riga del netto e' bianca piena: smorzata si confondeva con le righe
+  per wallbox, che le stanno sotto alla stessa misura
+- ADD opzioni grid_import_factor e grid_export_factor (default 1.0): calibrano
+  i kWh di Grid Import ed Export sul contatore del distributore (tipicamente
+  0.97 e 0.93). Si applicano all'origine, quindi valgono per kWh, euro,
+  grafici, totali di periodo e qualunque conto derivato
+- CHG i fattori fanno parte della chiave della cache dei giorni: cambiandoli i
+  giorni gia' visti vengono ricalcolati invece di restare ai numeri vecchi
 ## [1.7.33] - 2026-10-02
 - CHG in GRAPH la prima riga resta alle sole viste (DAY/WEEK/MONTH/YEAR e
   valuta): i menu wallbox e bars/lines scendono nella riga della data, col
