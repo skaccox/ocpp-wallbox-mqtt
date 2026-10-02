@@ -60,12 +60,14 @@
     </div>
         <div id="historyControls" class="historyControls">
           <div class="viewBtns">
+            <!-- Primo, e di un colore suo: non sceglie una vista come quelli
+                 accanto, cambia che cosa dicono tutti i numeri della pagina.
+                 Testo impostato a runtime: e' il simbolo di valuta. -->
+            <button id="btnMoney" class="viewBtn modeBtn" title="Mostra i valori in denaro">€</button>
             <button id="btnDay" class="viewBtn active">DAY</button>
             <button id="btnWeek" class="viewBtn">WEEK</button>
             <button id="btnMonth" class="viewBtn">MONTH</button>
             <button id="btnYear" class="viewBtn">YEAR</button>
-            <!-- testo impostato a runtime: e' il simbolo di valuta -->
-            <button id="btnMoney" class="viewBtn" title="Mostra i valori in denaro">€</button>
             <!-- riempito a runtime: compare solo con piu' di una wallbox -->
             <select id="wbFilter" style="display:none"></select>
           </div>

@@ -309,6 +309,23 @@ body.history-mode #status {
   font-weight: 600;
   border-color: #22c55e;
 }
+
+/* Il tasto valuta non e' uno di quelli accanto: loro scelgono che periodo
+   guardare, questo cambia che cosa dicono tutti i numeri - barra, grafico,
+   tooltip. Un colore suo in tutti e due gli stati lo dice prima ancora di
+   premerlo: spento e' il contorno, acceso e' pieno. */
+.viewBtn.modeBtn {
+  color: #f59e0b;
+  border-color: rgba(245,158,11,.55);
+  background: rgba(245,158,11,.12);
+  font-weight: 700;
+}
+
+.viewBtn.modeBtn.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #000;
+}
 .ctrlSep {
   color: var(--border);
   padding: 0 2px;

@@ -1,4 +1,10 @@
 # Changelog
+## [1.7.48] - 2026-10-02
+- CHG il tasto valuta passa in testa alla riga, prima di DAY, e ha un colore
+  suo in tutti e due gli stati: spento e' il contorno ambra, acceso e' pieno.
+  Non sceglie una vista come i pulsanti accanto, cambia che cosa dicono tutti i
+  numeri della pagina - barra, grafico e tooltip - e in grigio come gli altri
+  non si capiva prima di premerlo
 ## [1.7.47] - 2026-10-02
 - CHG nella barra Grid Import viene prima di Grid Export: si chiede prima
   quanto si e' preso e poi quanto si e' restituito, ed era l'unico punto
