@@ -288,9 +288,10 @@ body.history-mode #status {
 
 
 #chartType {
-  width: 92px;
+  width: 76px;
   font-size: 12px;
   padding: 4px 6px;
+  align-self: stretch;
 }
 
 .viewBtn {
@@ -710,6 +711,15 @@ body.history-mode #status {
 
 /* Spiegazione della casella: su desktop basterebbe il title nativo, ma su
    mobile non esiste e queste voci vanno spiegate anche li'. */
+/* I numeri staccati dalla spiegazione, e verdi come in barra: sono soldi
+   risparmiati, non il seguito del discorso. */
+.statTip .tipNet {
+  margin-top: 6px;
+  color: #22c55e;
+  font-weight: 600;
+  white-space: pre-line;
+}
+
 .statTip {
   position: fixed;
   z-index: 300;
@@ -723,21 +733,6 @@ body.history-mode #status {
   background: var(--card);
   border: 1px solid var(--border);
   box-shadow: 0 10px 24px rgba(0,0,0,.55);
-}
-
-/* stessa misura E stesso peso delle righe sotto: in grassetto la prima
-   tariffa sembrava piu' importante anche a parita' di corpo */
-.historyStats .priceList strong {
-  font-size: 12px;
-  font-weight: 400;
-}
-
-/* Le tariffe sono tutte dello stesso rango: la prima sta nel valore e le
-   altre nel contenitore delle wallbox, che e' smorzato apposta per fare da
-   dettaglio. Qui non deve smorzare niente. */
-.historyStats .priceList .wbSplit {
-  color: #fff;
-  opacity: 1;
 }
 
 /* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
@@ -756,6 +751,7 @@ body.history-mode #status {
   width: 84px;
   font-size: 11px;
   padding: 4px 4px;
+  align-self: stretch;
 }
 
 #wbFilter.active {
@@ -899,7 +895,7 @@ body.history-mode #status {
   }
 
   #chartType {
-    width: 76px;
+    width: 64px;
     font-size: 10px;
   }
 
@@ -907,8 +903,6 @@ body.history-mode #status {
      del resto della barra. Selettore con .historyStats davanti e blocco dopo
      la regola base, altrimenti a parita' di specificita' vince quella e qui
      non cambia niente. */
-  .historyStats .priceList strong { font-size: 9.5px; }
-
   .historyStats .wbSplit{
     font-size: 9.5px;
     line-height: 1.2;

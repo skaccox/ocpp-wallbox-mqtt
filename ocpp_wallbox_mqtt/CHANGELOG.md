@@ -1,4 +1,30 @@
 # Changelog
+## [1.7.41] - 2026-10-02
+- FIX nella vista anno EV Total e PV Saved tornano divisi per wallbox. I file
+  piu' vecchi non registrano il solare per singola ricarica, e un solo giorno
+  cosi' cancellava la scomposizione dell'intero periodo che lo conteneva: un
+  anno ne contiene sempre uno. Ora il solare di quei giorni si divide in
+  proporzione ai kWh caricati da ciascuna wallbox - quel totale e' gia' una
+  stima per integrazione, dividerlo non aggiunge precisione finta - e la
+  spiegazione di PV Charged avvisa quando nel periodo c'e' una stima
+- CHG le colonne Price Buy e Price Sell mostrano un valore solo: la media del
+  periodo, pesata sui kWh prelevati o immessi, cosi' una tariffa durata due
+  giorni non pesa come una durata sei mesi. Le singole tariffe, ciascuna con la
+  data da cui vale, si leggono nella spiegazione
+- CHG i giorni gia' in memoria si ricalcolano: quelli salvati prima non hanno
+  la scomposizione del solare
+## [1.7.40] - 2026-10-02
+- FIX il tasto valuta non ricarica piu' la vista: il grafico e' in kWh in
+  entrambe le modalita', e rileggere i dati per ridisegnare lo stesso disegno
+  faceva lampeggiare tutto. Ora cambiano solo le caselle della barra
+- CHG il netto sotto PV Saved va a capo e in verde, staccato dalla
+  spiegazione: e' un valore, in coda al discorso si leggeva come parte del
+  testo. La spiegazione dice cosa toglie, la riga sotto mostra quanto
+- CHG "Price Import" e "Price Export" diventano "Price Buy" e "Price Sell":
+  in barra i nomi lunghi rubavano spazio al valore
+- CHG la tendina bars/lines si stringe ancora (76px, 64px su mobile) e i due
+  menu prendono l'altezza della riga, quindi restano alti come i pulsanti
+  accanto anche col testo piu' piccolo
 ## [1.7.39] - 2026-10-02
 - CHG via la colonna "PV Net": il netto passa nella spiegazione di PV Saved,
   con la scomposizione per wallbox. E' un numero che si guarda ogni tanto e in

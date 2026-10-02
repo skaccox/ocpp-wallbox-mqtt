@@ -446,9 +446,15 @@ What each figure becomes when the button is on:
 | stat | in money |
 |---|---|
 | `EV Total` | what charging **cost**: the energy taken from the grid for the car — charged minus the solar share — at the buying price |
-| `PV Charged` | renamed **`PV Saved`**: what the solar saved, i.e. energy you did not have to buy, at the buying price. Under it, `net` subtracts the export you gave up: `kWh × (price_import − price_export)` |
+| `PV Charged` | renamed **`PV Saved`**: what the solar saved, i.e. energy you did not have to buy, at the buying price. Its tooltip also gives the **net**, which subtracts the export you gave up: `kWh × (price_import − price_export)` |
 | `Grid Import` | spent, at the buying price |
 | `Grid Export` | earned, at the selling price |
+
+Two columns appear as well, **`Price Buy`** and **`Price Sell`**: the average
+price of the period, weighted by the kWh taken from (or fed into) the grid, so
+a tariff that lasted two days does not count as much as one that lasted six
+months. When more than one tariff was in force, the tooltip lists them, each
+with the date it started from.
 
 `EV Max`, `PV Max`, `PV Total` and `Sessions` stay as they are: a power or a
 count has no price, and how much of the production was self-consumed rather
@@ -459,9 +465,15 @@ than exported is not known from these files.
 > question — "how much did I give up by not selling it" — and would give
 > smaller numbers. The first is the usual reading for a home plant.
 
-The per-wallbox breakdown follows: the cost of each wallbox needs its own
-solar share, so when that is missing (see `PV Charged` above) the breakdown
-under `EV Total` disappears rather than being guessed.
+The per-wallbox breakdown follows the same prices.
+
+The cost of a wallbox needs its own solar share, which the oldest files do not
+record per charging session. For those days the solar of the day is split
+between the wallboxes **in proportion to the kWh each one charged**: that
+day's solar total is already an estimate by integration, so dividing it adds
+no false precision, and leaving a hole instead used to wipe out the breakdown
+of the whole period containing it - a year always contains one such day. When
+a period includes estimated days, the `PV Charged` tooltip says so.
 
 ---
 

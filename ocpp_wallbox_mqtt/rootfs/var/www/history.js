@@ -14,6 +14,15 @@ let moneyMode = false;
 // viene riscritta sia quando cambiano i dati sia quando si cambia modalita'.
 let lastMoney = null;
 
+// Come ridisegnare le sole caselle della barra con i dati gia' in mano. Il
+// grafico e' in kWh in entrambe le modalita': rileggere tutto per cambiare
+// valuta faceva lampeggiare un disegno identico a quello di prima.
+let lastStats = null;
+
+// Vero quando nel periodo c'e' almeno un giorno con la scomposizione del FV
+// stimata invece che letta: la spiegazione di PV Charged lo dice.
+let lastPvEst = false;
+
 // Calibrazione dei kWh di rete sul contatore del distributore. Vale solo per
 // Grid Import e Grid Export: EV e FV arrivano da altri sensori e non si
 // toccano. Si applica all'origine, dove l'energia viene integrata, cosi' ogni
@@ -208,27 +217,21 @@ function fmtPrice(v){
   return fmtNum(v, 3) + priceTables().cur;
 }
 
-// Una tariffa sola: il numero e basta. Piu' d'una: una riga per ciascuna con
-// la data da cui vale, incolonnate come le wallbox - la prima nel valore, le
-// altre sotto. In quel caso il valore si rimpicciolisce (.priceList), se no
-// la prima riga sarebbe grande il doppio delle sue gemelle.
-function setPriceStat(id, rows){
-  const el = document.getElementById(id);
-  if (!el) return;
-
-  const host = el.parentElement;
+// Prezzo medio davvero pagato (o incassato) nel periodo: soldi diviso kWh.
+// Con piu' tariffe la media semplice direbbe un'altra cosa, perche' una
+// tariffa durata due giorni non pesa come una durata sei mesi.
+//
+// Senza energia nel periodo non c'e' niente da pesare: vale la tariffa in
+// vigore alla fine, che e' quella che si applicherebbe adesso.
+function prezzoMedio(rows, soldi, kwh){
   const list = rows || [];
-  const riga = (r) => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`;
+  if (kwh > 0 && soldi > 0) return soldi / kwh;
+  return list.length ? list[list.length - 1].price : null;
+}
 
-  if (!list.length) {
-    setStatWithSplit(id, "—", []);
-  } else if (list.length === 1) {
-    setStatWithSplit(id, fmtPrice(list[0].price), []);
-  } else {
-    setStatWithSplit(id, riga(list[0]), list.slice(1).map(riga));
-  }
-
-  if (host) host.classList.toggle("priceList", list.length > 1);
+function setPriceStat(id, media){
+  if (!document.getElementById(id)) return;
+  setStatWithSplit(id, media == null ? "—" : fmtPrice(media), []);
 }
 
 // Una spiegazione per modalita': in euro la casella misura un'altra cosa, e
@@ -246,7 +249,7 @@ const STAT_TIPS = {
   },
   statPvCharged: {
     kwh: "Energia solare caricata nelle auto.",
-    eur: "Spesa evitata: quanto avresti pagato comprando dalla rete l'energia solare finita nelle auto."
+    eur: "Spesa evitata: quanto avresti pagato comprando dalla rete l'energia solare finita nelle auto. Il netto toglie il mancato incasso dell'export."
   },
   statPvChargedPct: {
     kwh: "Quota della ricarica coperta dal solare."
@@ -266,10 +269,10 @@ const STAT_TIPS = {
     eur: "Costo dell'energia prelevata, al prezzo d'acquisto (energia, oneri, accise e IVA; escluse quota fissa e potenza)."
   },
   statPriceImport: {
-    eur: "Prezzo d'acquisto applicato nel periodo, dalla tabella prezzi con data di validita'."
+    eur: "Prezzo d'acquisto medio del periodo, pesato sui kWh prelevati."
   },
   statPriceExport: {
-    eur: "Prezzo di vendita applicato nel periodo, dalla tabella prezzi con data di validita'."
+    eur: "Prezzo di vendita medio del periodo, pesato sui kWh immessi."
   }
 };
 
@@ -280,16 +283,36 @@ function applyStatTips(){
 
     let testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
 
-    // Il risparmio netto sta qui invece che in una casella sua: e' un numero
-    // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
-    // che si guardano sempre.
-    if (id === "statPvCharged" && moneyMode && lastMoney && lastMoney.netPv > 0) {
-      const perWb = wbBreakdownParts(lastMoney.netByWb || null, priceTables().cur);
-      testo += ` Netto ${fmtMoney(lastMoney.netPv)}, tolto il mancato incasso dell'export`;
-      testo += perWb.length ? ` (${perWb.join(" · ")}).` : ".";
+    // Una scomposizione stimata non si distingue a vederla: va detto.
+    if ((id === "statPvCharged" || id === "statPvChargedPct") && lastPvEst) {
+      testo += " Per i giorni piu' vecchi la divisione fra wallbox e' stimata:"
+             + " quei file non registrano il solare di ogni singola ricarica.";
     }
 
-    host.title = testo;
+    // Il risparmio netto sta qui invece che in una casella sua: e' un numero
+    // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
+    // che si guardano sempre. Sta su una riga sua perche' e' un valore, e in
+    // coda alla spiegazione si leggeva come parte del discorso.
+    let righe = "";
+    if (id === "statPvCharged" && moneyMode && lastMoney && lastMoney.netPv > 0) {
+      const perWb = wbBreakdownParts(lastMoney.netByWb || null, priceTables().cur);
+      righe = `Netto ${fmtMoney(lastMoney.netPv)}`;
+      if (perWb.length) righe += ` (${perWb.join(" · ")})`;
+    }
+
+    // In barra il prezzo e' uno solo, la media del periodo: le tariffe che
+    // l'hanno composta stanno qui, ciascuna con la data da cui vale. Una
+    // tariffa sola non si elenca, il valore in barra e' gia' quella.
+    const elenco = id === "statPriceImport" ? lastMoney?.pricesImport
+                 : id === "statPriceExport" ? lastMoney?.pricesExport
+                 : null;
+    if (moneyMode && elenco && elenco.length > 1) {
+      righe = elenco.map(r => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`).join("\n");
+    }
+
+    host.dataset.tipMain = testo;
+    host.dataset.tipNet = righe;
+    host.title = righe ? testo + "\n" + righe : testo;
   }
 }
 
@@ -313,7 +336,19 @@ function setupStatTips(){
     if (!box || !box.title) { chiudi(); return; }
 
     ev.stopPropagation();
-    tip.textContent = box.title;
+
+    tip.textContent = "";
+    const main = document.createElement("div");
+    main.textContent = box.dataset.tipMain || box.title;
+    tip.appendChild(main);
+
+    if (box.dataset.tipNet) {
+      const net = document.createElement("div");
+      net.className = "tipNet";
+      net.textContent = box.dataset.tipNet;
+      tip.appendChild(net);
+    }
+
     tip.style.display = "block";
 
     // sotto la casella, ma dentro lo schermo
@@ -333,10 +368,18 @@ function setupStatTips(){
 
 setupStatTips();
 
-function setPriceStats(money){
+function setPriceStats(money, energie){
   const m = money || {};
-  setPriceStat("statPriceImport", m.pricesImport);
-  setPriceStat("statPriceExport", m.pricesExport);
+  const e = energie || {};
+
+  setPriceStat("statPriceImport",
+               prezzoMedio(m.pricesImport, m.costImport, e.imp));
+  setPriceStat("statPriceExport",
+               prezzoMedio(m.pricesExport, m.revenueExport, e.exp));
+
+  // le singole tariffe, con la loro data, stanno nella spiegazione
+  lastMoney = money || lastMoney;
+  applyStatTips();
 }
 
 // Valore in denaro: simbolo attaccato, senza spazio.
@@ -444,7 +487,8 @@ document.getElementById("btnYear").onclick  = () => setViewMode("year");
 document.getElementById("btnMoney").onclick = () => {
   moneyMode = !moneyMode;
   applyUnits();
-  loadCurrentView();
+  if (lastStats) lastStats();
+  else loadCurrentView();
 };
 
 applyUnits();   // simbolo di valuta sul pulsante fin da subito
@@ -633,7 +677,7 @@ window.zeroLinePlugin = {
 // giorni chiusi si tengono da parte. Oggi no: e' ancora in corso.
 // I fattori fanno parte della chiave: cambiandoli i giorni gia' in cache
 // sarebbero rimasti ai numeri vecchi.
-const DAY_CACHE = "ocppDayTotals1:";
+const DAY_CACHE = "ocppDayTotals2:";
 
 // Impronta del listino: cambiando un prezzo i giorni in cache tornerebbero
 // coi soldi vecchi, visto che ora li contengono.
@@ -694,6 +738,7 @@ function mergeTotals(list){
     pvChargedByWb: ok.every(t => t.pvChargedByWb)
       ? mergeKwhByWallbox(ok.map(t => t.pvChargedByWb))
       : null,
+    pvSplitEst: ok.some(t => t.pvSplitEst),
     money: mergeMoney(ok.map(t => t.money)),
     hasData: true
   };
@@ -780,9 +825,14 @@ async function computeDailyTotals(d) {
     const pvMaxKw = minMax(normalizeSeries(solar.solarKw))?.max ?? 0;
 
     const chargeByWb = kwhByWallbox(sessionsMeta);
-    const pvByWb = sessionsMeta.length === 0
+    const pvReale = sessionsMeta.length === 0
       ? {}
       : (pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null);
+
+    // Senza il dato vero si stima, invece di lasciare un buco: un buco non
+    // restava circoscritto al giorno, cancellava la scomposizione dell'intero
+    // periodo che lo conteneva - e un anno contiene sempre un giorno vecchio.
+    const pvByWb = pvReale || splitProporzionale(chargeByWb, pvChargedKwh);
 
     const out = { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
                   sessionCount: sessionsMeta.length,
@@ -792,6 +842,8 @@ async function computeDailyTotals(d) {
                   // bastava un giorno di sosta per far sparire la
                   // scomposizione del FV dell'intera settimana o del mese.
                   pvChargedByWb: pvByWb,
+                  // la barra lo dice nella spiegazione: non e' un dato letto
+                  pvSplitEst: !pvReale,
                   // col listino di QUESTO giorno: i periodi li sommano
                   money: dayMoney(ymd, { chargeKwh, pvChargedKwh, importKwh, exportKwh,
                                          chargeByWb, pvChargedByWb: pvByWb }),
@@ -1112,7 +1164,7 @@ function wbPvPctParts(pvByWb, chargeByWb){
 
 // pvByWb null = il dato per-wallbox non c'e' (file senza col 11, o giorni misti
 // nel periodo): si mostra solo il totale, senza inventare una scomposizione.
-function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
+function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money, splitStimato){
   const pct = (totCharge > 0 && totPv > 0) ? Math.min(100, totPv / totCharge * 100) : 0;
   const m = money || {};
   const cur = priceTables().cur;
@@ -1127,6 +1179,7 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
 
   // il netto finisce nella spiegazione di questa casella
   lastMoney = money || null;
+  lastPvEst = !!splitStimato;
   applyStatTips();
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
@@ -1153,11 +1206,14 @@ function updatePeriodStats(totals) {
   // salta: sommare solo i giorni che ce l'hanno darebbe percentuali false.
   const pvSplitOk = totals.every(t => !t.hasData || t.pvChargedByWb);
   const pvByWb = pvSplitOk ? mergeKwhByWallbox(totals.map(t => t.pvChargedByWb)) : null;
+  const pvSplitEst = totals.some(t => t.hasData && t.pvSplitEst);
   const money = mergeMoney(totals.map(t => t.money));
 
+  lastStats = () => updatePeriodStats(totals);
+
   setChargedStat(totCharge, byWb, money);
-  setPvStats(totPvCharged, totCharge, pvByWb, byWb, money);
-  setPriceStats(money);
+  setPvStats(totPvCharged, totCharge, pvByWb, byWb, money, pvSplitEst);
+  setPriceStats(money, { imp: sum("importKwh"), exp: sum("exportKwh") });
   document.getElementById("statSessions").textContent = sessions || "—";
   document.getElementById("statPvMax").textContent    = pvMax ? fmtNum(pvMax, 2) : "—";
   document.getElementById("statSolar").textContent    = fmtNum(sum("solarKwh"), 2);
@@ -1488,10 +1544,15 @@ if (pvFromFile != null) {
   }
   if (totalKwh > 0 && pvChargedKwh > totalKwh) pvChargedKwh = totalKwh;
 }
-// la scomposizione del FV ha senso solo se il valore viene dalle sessioni:
-// la stima per integrazione usa la rete, che e' una sola per tutte
+// Il FV per wallbox arriva dalle sessioni (col 11). Quando non c'e' si
+// ripartisce il totale del giorno in proporzione ai kWh di ciascuna: quel
+// totale e' gia' una stima per integrazione, e dividerlo non peggiora il dato.
 const chargeByWbDay = kwhByWallbox(sessionsMeta);
-const pvByWbDay = pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null;
+const pvRealeDay = sessionsMeta.length === 0
+  ? {}                                   // niente ricariche: scomposizione vuota, non stimata
+  : (pvFromFile != null ? pvKwhByWallbox(sessionsMeta) : null);
+const pvByWbDay = pvRealeDay || splitProporzionale(chargeByWbDay, pvChargedKwh);
+const pvSplitEstDay = !pvRealeDay;
 
 document.getElementById("statPvMax").textContent =
   pvMM ? fmtNum(pvMM.max, 2) : "—";
@@ -1528,14 +1589,17 @@ const moneyDay = dayMoney(ymd, {
   pvChargedByWb: pvByWbDay
 });
 
-setChargedStat(totalKwh, chargeByWbDay, moneyDay);
-setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay, moneyDay);
-setPriceStats(moneyDay);
+lastStats = () => {
+  setChargedStat(totalKwh, chargeByWbDay, moneyDay);
+  setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay, moneyDay, pvSplitEstDay);
+  setPriceStats(moneyDay, { imp: gridImportKwh, exp: gridExportKwh });
 
-document.getElementById("statGridExport").textContent =
-  gridExportKwh > 0 ? fmtEnergy(gridExportKwh, moneyDay.revenueExport) : "—";
-document.getElementById("statGridImport").textContent =
-  gridImportKwh > 0 ? fmtEnergy(gridImportKwh, moneyDay.costImport) : "—";
+  document.getElementById("statGridExport").textContent =
+    gridExportKwh > 0 ? fmtEnergy(gridExportKwh, moneyDay.revenueExport) : "—";
+  document.getElementById("statGridImport").textContent =
+    gridImportKwh > 0 ? fmtEnergy(gridImportKwh, moneyDay.costImport) : "—";
+};
+lastStats();
 
 document.getElementById("statSessions").textContent =
   sessionsMeta.length;
@@ -1545,6 +1609,22 @@ document.getElementById("statSessions").textContent =
 }
 
 // kWh per wallbox a partire dalle sessioni: {wallbox01: 2.0, wallbox02: 5.0}
+// Ripartisce un totale di giornata fra le wallbox in proporzione ai kWh che
+// ciascuna ha caricato. Serve ai giorni scritti prima della col 11, dove il
+// solare per singola wallbox non e' registrato: il totale di quei giorni e'
+// gia' una stima per integrazione, quindi dividerlo in proporzione resta la
+// stessa stima e non aggiunge precisione finta.
+function splitProporzionale(byWb, tot){
+  const out = {};
+  const keys = Object.keys(byWb || {});
+  const somma = keys.reduce((a, k) => a + (byWb[k] || 0), 0);
+
+  for (const k of keys) {
+    out[k] = (somma > 0 && tot > 0) ? tot * (byWb[k] || 0) / somma : 0;
+  }
+  return out;
+}
+
 function kwhByWallbox(sessionsMeta){
   const out = {};
   for (const s of (sessionsMeta || [])){
