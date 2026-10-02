@@ -36,14 +36,19 @@ function priceTables(){
 // Prezzo valido in un giorno: l'ultima riga con decorrenza <= quel giorno.
 // Prima della prima riga vale la prima, altrimenti un listino che parte a
 // maggio lascerebbe aprile a zero.
-function priceAt(rows, ymd){
-  if (!rows || !rows.length) return 0;
+function priceRowAt(rows, ymd){
+  if (!rows || !rows.length) return null;
 
-  let v = rows[0].price;
+  let row = rows[0];
   for (const r of rows) {
-    if (r.from <= ymd) v = r.price; else break;
+    if (r.from <= ymd) row = r; else break;
   }
-  return v;
+  return row;
+}
+
+function priceAt(rows, ymd){
+  const r = priceRowAt(rows, ymd);
+  return r ? r.price : 0;
 }
 
 // I soldi di UN giorno, col listino di quel giorno. Vanno calcolati qui e non
@@ -52,17 +57,19 @@ function priceAt(rows, ymd){
 // darebbe un numero sbagliato a ogni cambio di listino.
 function dayMoney(ymd, t){
   const p = priceTables();
-  const pi = priceAt(p.imp, ymd);
-  const pe = priceAt(p.exp, ymd);
+  const ri = priceRowAt(p.imp, ymd);
+  const re = priceRowAt(p.exp, ymd);
+  const pi = ri ? ri.price : 0;
+  const pe = re ? re.price : 0;
 
   const ev = t.chargeKwh || 0;
   const pv = t.pvChargedKwh || 0;
 
   const out = {
-    // i prezzi usati, in lista anche qui: un periodo li unisce senza dover
-    // distinguere fra un giorno e un aggregato gia' fatto
-    pricesImport: [pi],
-    pricesExport: [pe],
+    // le RIGHE di listino usate, non solo il numero: senza la data di
+    // decorrenza un elenco di prezzi non dice quale ha agito quando
+    pricesImport: ri ? [ri] : [],
+    pricesExport: re ? [re] : [],
 
     costEv:        Math.max(0, ev - pv) * pi,
     savingPv:      pv * pi,
@@ -97,10 +104,14 @@ function mergeMoney(list){
   const sum = k => ok.reduce((a, m) => a + (m[k] || 0), 0);
   const splitOk = ok.every(m => m.costByWb);
 
-  // prezzi distinti nell'ordine in cui sono comparsi, cioe' cronologico
+  // righe distinte nell'ordine in cui sono comparse, cioe' cronologico
   const listino = (k) => {
     const out = [];
-    for (const m of ok) for (const p of (m[k] || [])) if (!out.includes(p)) out.push(p);
+    for (const m of ok) {
+      for (const r of (m[k] || [])) {
+        if (!out.some(x => x.from === r.from && x.price === r.price)) out.push(r);
+      }
+    }
     return out;
   };
 
@@ -143,7 +154,7 @@ function applyUnits(){
 
   for (const id of ["uPriceImport", "uPriceExport"]) {
     const el = document.getElementById(id);
-    if (el) el.textContent = cur + "/kWh";
+    if (el) el.textContent = "/kWh";
   }
 
   // In denaro restano solo le voci che SONO soldi: un conteggio di sessioni o
@@ -166,18 +177,48 @@ function applyUnits(){
   }
 }
 
-// "0.213" oppure "0.213 · 0.229" se nel periodo la tariffa e' cambiata.
-function fmtPrices(list){
-  const v = (list || []).filter(p => typeof p === "number" && isFinite(p));
-  return v.length ? v.map(p => fmtNum(p, 3)).join(" · ") : "—";
+// "01/05/2026" dalla forma compatta, nel formato della lingua del browser
+function fmtYmd(ymd){
+  const s = String(ymd || "");
+  if (s.length !== 8) return "";
+
+  const d = new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+  return isNaN(d) ? "" : d.toLocaleDateString(undefined, {
+    day: "2-digit", month: "2-digit", year: "numeric"
+  });
+}
+
+function fmtPrice(v){
+  return fmtNum(v, 3) + priceTables().cur;
+}
+
+// Una tariffa sola: il numero e basta. Piu' d'una: una riga per ciascuna con
+// la data da cui vale, incolonnate come le wallbox - la prima nel valore, le
+// altre sotto. In quel caso il valore si rimpicciolisce (.priceList), se no
+// la prima riga sarebbe grande il doppio delle sue gemelle.
+function setPriceStat(id, rows){
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  const host = el.parentElement;
+  const list = rows || [];
+  const riga = (r) => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`;
+
+  if (!list.length) {
+    setStatWithSplit(id, "—", []);
+  } else if (list.length === 1) {
+    setStatWithSplit(id, fmtPrice(list[0].price), []);
+  } else {
+    setStatWithSplit(id, riga(list[0]), list.slice(1).map(riga));
+  }
+
+  if (host) host.classList.toggle("priceList", list.length > 1);
 }
 
 function setPriceStats(money){
   const m = money || {};
-  const el1 = document.getElementById("statPriceImport");
-  const el2 = document.getElementById("statPriceExport");
-  if (el1) el1.textContent = fmtPrices(m.pricesImport);
-  if (el2) el2.textContent = fmtPrices(m.pricesExport);
+  setPriceStat("statPriceImport", m.pricesImport);
+  setPriceStat("statPriceExport", m.pricesExport);
 }
 
 // Valore in denaro: simbolo attaccato, senza spazio.
