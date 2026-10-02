@@ -77,18 +77,21 @@ function dayMoney(ymd, t){
     costImport:    (t.importKwh || 0) * pi,
     revenueExport: (t.exportKwh || 0) * pe,
     costByWb:   null,
-    savingByWb: null
+    savingByWb: null,
+    netByWb:    null
   };
 
   // il costo per wallbox ha bisogno della quota solare di ciascuna
   if (t.pvChargedByWb) {
     out.costByWb = {};
     out.savingByWb = {};
+    out.netByWb = {};
     for (const wb of Object.keys(t.chargeByWb || {})) {
       out.costByWb[wb] = Math.max(0, (t.chargeByWb[wb] || 0) - (t.pvChargedByWb[wb] || 0)) * pi;
     }
     for (const wb of Object.keys(t.pvChargedByWb)) {
       out.savingByWb[wb] = (t.pvChargedByWb[wb] || 0) * pi;
+      out.netByWb[wb]    = (t.pvChargedByWb[wb] || 0) * Math.max(0, pi - pe);
     }
   }
 
@@ -124,7 +127,8 @@ function mergeMoney(list){
     costImport:    sum("costImport"),
     revenueExport: sum("revenueExport"),
     costByWb:   splitOk ? mergeKwhByWallbox(ok.map(m => m.costByWb))   : null,
-    savingByWb: splitOk ? mergeKwhByWallbox(ok.map(m => m.savingByWb)) : null
+    savingByWb: splitOk ? mergeKwhByWallbox(ok.map(m => m.savingByWb)) : null,
+    netByWb:    splitOk ? mergeKwhByWallbox(ok.map(m => m.netByWb))    : null
   };
 }
 
@@ -165,9 +169,15 @@ function applyUnits(){
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "none" : "";
   }
-  for (const id of ["statPriceImport", "statPriceExport"]) {
+  for (const id of ["statPriceImport", "statPriceExport", "statPvNet"]) {
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "" : "none";
+  }
+
+  // verde su quello che entra o non esce; il costo resta del colore normale
+  for (const id of ["statPvCharged", "statPvNet", "statGridExport"]) {
+    const host = document.getElementById(id)?.parentElement;
+    if (host) host.classList.toggle("gain", moneyMode);
   }
 
   const btn = document.getElementById("btnMoney");
@@ -214,6 +224,46 @@ function setPriceStat(id, rows){
 
   if (host) host.classList.toggle("priceList", list.length > 1);
 }
+
+// Il title nativo si vede solo col mouse: su mobile serve un riquadro vero.
+// Resta uno solo, riusato da tutte le caselle.
+function setupStatTips(){
+  const bar = document.getElementById("historyStats");
+  if (!bar || bar.dataset.tips) return;
+  bar.dataset.tips = "1";
+
+  const tip = document.createElement("div");
+  tip.className = "statTip";
+  tip.style.display = "none";
+  document.body.appendChild(tip);
+
+  let timer = null;
+  const chiudi = () => { tip.style.display = "none"; clearTimeout(timer); };
+
+  bar.addEventListener("click", (ev) => {
+    const box = ev.target.closest("span[title]");
+    if (!box || !box.title) { chiudi(); return; }
+
+    ev.stopPropagation();
+    tip.textContent = box.title;
+    tip.style.display = "block";
+
+    // sotto la casella, ma dentro lo schermo
+    const r = box.getBoundingClientRect();
+    const w = tip.offsetWidth;
+    const left = Math.max(10, Math.min(r.left + r.width / 2 - w / 2,
+                                       window.innerWidth - w - 10));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${r.bottom + 8}px`;
+
+    clearTimeout(timer);
+    timer = setTimeout(chiudi, 6000);
+  });
+
+  document.addEventListener("click", chiudi);
+}
+
+setupStatTips();
 
 function setPriceStats(money){
   const m = money || {};
@@ -929,7 +979,7 @@ function drawBarChart(labels, totals, title) {
 // Valore della statistica e, sotto, una riga per wallbox. Gli elementi sono
 // fratelli dentro lo stesso contenitore: un blocco romperebbe il layout
 // flex/nowrap di .historyStats.
-function setStatWithSplit(id, text, parts, extra){
+function setStatWithSplit(id, text, parts){
   const el = document.getElementById(id);
   if (!el) return;
 
@@ -942,7 +992,6 @@ function setStatWithSplit(id, text, parts, extra){
 
   if (!parts || !parts.length) {
     if (sub) sub.remove();
-    aggiungiRigaExtra(el, host, extra);
     return;
   }
   if (!sub) {
@@ -958,31 +1007,6 @@ function setStatWithSplit(id, text, parts, extra){
     one.textContent = p;
     sub.appendChild(one);
   }
-
-  aggiungiRigaExtra(el, host, extra);
-}
-
-// Riga facoltativa fra il valore e la scomposizione (oggi: il risparmio netto).
-// Va inserita DOPO la scomposizione con "afterend" sul valore, cosi' finisce
-// subito sotto al numero e sopra alle wallbox.
-function aggiungiRigaExtra(el, host, extra){
-  let line = host.querySelector(".netLine");
-
-  if (!extra) {
-    if (line) line.remove();
-    return;
-  }
-  if (!line) {
-    line = document.createElement("span");
-    line.className = "netLine";
-  }
-
-  // Riposizionata a ogni giro, non solo quando viene creata: la scomposizione
-  // per wallbox va e viene a seconda del periodo, e chi dei due nasceva per
-  // secondo finiva piu' vicino al valore. Qui si gira dopo la scomposizione,
-  // quindi questo "afterend" la scavalca sempre e il netto resta il primo.
-  el.insertAdjacentElement("afterend", line);
-  line.textContent = extra;
 }
 
 // In denaro il totale caricato diventa quanto e' costato: serve quindi anche
@@ -1029,21 +1053,15 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
   const valore = moneyMode ? (m.savingPv || 0) : totPv;
   const parti  = moneyMode ? m.savingByWb : pvByWb;
 
-  // Netto: il solare finito nell'auto non e' stato immesso, quindi al
-  // risparmio va tolto l'incasso dell'export a cui si e' rinunciato.
-  const netto = (moneyMode && totPv > 0) ? `net ${fmtMoney(m.netPv)}` : "";
-
   setStatWithSplit("statPvCharged",
                    totPv > 0 ? (moneyMode ? fmtMoney(valore) : fmtNum(valore, 2)) : "—",
-                   wbBreakdownParts(parti || null, moneyMode ? cur : ""),
-                   netto);
+                   wbBreakdownParts(parti || null, moneyMode ? cur : ""));
 
-  const host = document.getElementById("statPvCharged")?.parentElement;
-  if (host) {
-    host.title = moneyMode
-      ? "Lordo: energia non comprata. Netto: meno il mancato incasso dell'export"
-      : "";
-  }
+  // Il netto ha una casella sua: come riga sotto al lordo si leggeva come un
+  // dettaglio, mentre e' il numero che conta davvero.
+  setStatWithSplit("statPvNet",
+                   (moneyMode && totPv > 0) ? fmtMoney(m.netPv) : "—",
+                   moneyMode ? wbBreakdownParts(m.netByWb || null, cur) : []);
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }

@@ -697,21 +697,48 @@ body.history-mode #status {
    pensa l'andare a capo */
 /* elenco di tariffe: il primo valore ha la stessa misura di quelli sotto,
    altrimenti la prima riga sembrerebbe piu' importante delle altre */
+/* Solo il numero, non tutta la casella: sono soldi che entrano o che non
+   escono, e si distinguono a colpo d'occhio da quelli che se ne vanno. */
+.historyStats .gain strong {
+  color: #22c55e;
+}
+
+.historyStats .gain .wbSplit {
+  color: #22c55e;
+  opacity: .85;
+}
+
+/* Spiegazione della casella: su desktop basterebbe il title nativo, ma su
+   mobile non esiste e queste voci vanno spiegate anche li'. */
+.statTip {
+  position: fixed;
+  z-index: 300;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(0,0,0,.55);
+}
+
 .historyStats .priceList strong {
   font-size: 12px;
   font-weight: 600;
 }
 
-/* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
-/* bianco pieno: col grigio smorzato si confondeva con le righe per wallbox,
-   che gli stanno subito sotto alla stessa misura */
-.netLine {
-  font-size: 12px;
-  font-weight: 400;
+/* Le tariffe sono tutte dello stesso rango: la prima sta nel valore e le
+   altre nel contenitore delle wallbox, che e' smorzato apposta per fare da
+   dettaglio. Qui non deve smorzare niente. */
+.historyStats .priceList .wbSplit {
   color: #fff;
   opacity: 1;
 }
 
+/* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
 .wbSplit {
   display: inline-flex;
   flex-direction: column;
@@ -873,8 +900,6 @@ body.history-mode #status {
     width: 86px;
     font-size: 10px;
   }
-
-  .historyStats .netLine { font-size: 10.5px; }
 
   /* In cima lo spazio e' poco: le righe per wallbox vanno molto piu' piccole
      del resto della barra. Selettore con .historyStats davanti e blocco dopo

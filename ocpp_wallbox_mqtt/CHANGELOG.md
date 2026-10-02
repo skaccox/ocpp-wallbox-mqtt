@@ -1,5 +1,18 @@
 # Changelog
+## [1.7.37] - 2026-10-02
+- ADD casella "PV Net" accanto a PV Saved, solo in denaro: il risparmio reale
+  (spesa evitata meno il mancato incasso dell'export) con la sua scomposizione
+  per wallbox. Al posto della riga "net", che sotto al lordo si leggeva come un
+  dettaglio mentre e' il numero che conta
+- CHG in denaro i valori di PV Saved, PV Net e Grid Export sono verdi: sono
+  soldi che entrano o che non escono. EV Total e Grid Import restano com'erano,
+  e in kWh non cambia niente
+- ADD ogni casella della barra ha la sua spiegazione: col mouse il tooltip del
+  browser, al tap un riquadro - su mobile il title nativo non esiste
 ## [1.7.36] - 2026-10-02
+- FIX nell'elenco delle tariffe la prima riga era bianca e le altre smorzate:
+  stanno nel contenitore delle wallbox, che fa da dettaglio. Ora sono tutte
+  bianche, perche' hanno lo stesso rango
 - CHG le colonne dei prezzi portano il simbolo sul valore (0,213€) e, quando
   nel periodo la tariffa e' cambiata, elencano le righe una sotto l'altra con
   la data di decorrenza: "01/05/2026 0,213€"
