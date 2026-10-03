@@ -1,4 +1,8 @@
 # Changelog
+## [1.8.13] - 2026-10-03
+- FIX su schermo largo l'unita' mancava sotto le caselle con due wallbox:
+  "Giardino 5,00" invece di "Giardino 5,00 kWh". Ora la porta anche la
+  scomposizione, comprese le righe che compaiono dopo
 ## [1.8.12] - 2026-10-03
 - CHG su schermo largo l'unita' di misura sta accanto al valore ("25,00 kWh")
   invece che accanto all'icona: attaccata al numero si legge in un colpo solo,

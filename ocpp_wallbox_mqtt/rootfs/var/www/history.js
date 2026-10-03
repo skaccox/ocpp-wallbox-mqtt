@@ -198,10 +198,13 @@ function applyUnits(){
     statEv: "kW", statPvMax: "kW"
   };
   for (const [id, unita] of Object.entries(UNITA)) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.dataset.unita = unita;
-    el.parentElement?.classList.toggle("unita", !moneyMode);
+    const host = document.getElementById(id)?.parentElement;
+    if (!host) continue;
+
+    // Proprieta' sulla casella invece che sul valore: si eredita, quindi la
+    // prendono anche le righe per wallbox, comprese quelle create dopo.
+    host.style.setProperty("--unita", `" ${unita}"`);
+    host.classList.toggle("unita", !moneyMode);
   }
 
   // In denaro restano solo le voci che SONO soldi: un conteggio di sessioni,
