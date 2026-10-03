@@ -162,6 +162,60 @@ function getLastLogTimestamp(lines){
   return null;
 }
 
+// Le wallbox riconoscibili nel log, in ordine stabile. La mappa arriva da
+// ocpp.ini (sezione -> nome), e una riga puo' nominare l'uno o l'altro:
+// si cercano tutti e due.
+//
+// Si prepara una volta sola: le espressioni regolari costano, e il log si
+// ridisegna ogni paio di secondi con migliaia di righe.
+let WB_LOG = null;
+
+function wbLogList(){
+  if (WB_LOG) return WB_LOG;
+
+  const mappa = (typeof window !== "undefined" && window.OCPP_WALLBOX_NAMES) || {};
+  const esc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Confini fatti a mano invece di \b: un nome puo' finire con un carattere
+  // che parola non e' - "box (nord)" - e li' \b non scatta, perche' fra ")"
+  // e "]" non c'e' nessun passaggio da parola a non parola.
+  WB_LOG = Object.keys(mappa).sort().map((id, i) => {
+    const voci = [id, mappa[id]].filter(Boolean).map(esc);
+    return {
+      indice: i,
+      re: new RegExp(`(^|[^\\w])(?:${voci.join("|")})($|[^\\w])`, "i")
+    };
+  });
+  return WB_LOG;
+}
+
+// Indice della wallbox nominata nella riga, -1 se non se ne riconosce nessuna.
+function wbOfLine(line){
+  for (const wb of wbLogList()) {
+    if (wb.re.test(line)) return wb.indice;
+  }
+  return -1;
+}
+
+// Classe di una riga di ricarica.
+//
+// Con piu' wallbox il colore dice CHI sta caricando - gli stessi colori delle
+// barre del grafico - e l'intensita' resta alla potenza. Prima il colore
+// diceva solo la potenza: due wallbox davano due verdi quasi uguali, che si
+// leggevano come una differenza fra loro invece che fra i watt.
+//
+// Con una wallbox sola non c'e' niente da distinguere e restano i due verdi.
+function classeChg(line){
+  const m = line.match(/\bP=(\d+(?:\.\d+)?)\b/);
+  const p = m ? parseFloat(m[1]) : 0;
+  const forte = p >= 2500;
+
+  const i = wbLogList().length > 1 ? wbOfLine(line) : -1;
+  if (i < 0) return forte ? " chgH" : " chgL";
+
+  return ` wb${i}` + (forte ? "" : " lowP");
+}
+
 function chgHasPower(line) {
   if (!/\bCHG\*/.test(line)) return false;
   const m = line.match(/\bP\s*=\s*([0-9]+(?:[.,][0-9]+)?)/); // niente \b finale
@@ -610,11 +664,7 @@ if (kwh == null && isCharging && lastGoodKwh != null) kwh = lastGoodKwh;
         let c = "line";
 
         if (/grid safe limit exceeded/i.test(l)) c += " safe";
-        else if (/\bCHG\*/.test(l)) {
-          const m = l.match(/\bP=(\d+(?:\.\d+)?)\b/);
-          const p = m ? parseFloat(m[1]) : 0;
-          c += (p >= 2500) ? " chgH" : " chgL";
-        }
+        else if (/\bCHG\*/.test(l)) c += classeChg(l);
         else if (/\bL[123]\b/i.test(l)) c += " dim";
         else if (/\bIncreasing to\b/i.test(l)) c += " inc";
         else if (/\b(Decreasing to|Reducing to)\b/i.test(l)) c += " dec";

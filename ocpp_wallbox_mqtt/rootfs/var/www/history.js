@@ -173,8 +173,8 @@ function applyUnits(){
   // energia presa dalla rete diventa il suo costo, la seconda da energia
   // solare diventa la spesa che quel solare ha evitato.
   const NOMI = {
-    lblEvGrid:    ["EV from Grid",  "EV Cost"],
-    lblPvCharged: ["EV from Solar", "Solar Saved"]
+    lblEvGrid:    ["EV Grid",  "EV Cost"],
+    lblPvCharged: ["EV Solar", "Solar Saved"]
   };
   for (const [id, [inKwh, inDenaro]] of Object.entries(NOMI)) {
     const el = document.getElementById(id);

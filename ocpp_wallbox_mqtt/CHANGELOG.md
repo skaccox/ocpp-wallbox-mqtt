@@ -1,4 +1,14 @@
 # Changelog
+## [1.8.8] - 2026-10-03
+- CHG nel log le righe di ricarica di un impianto con piu' wallbox prendono
+  il colore della loro wallbox, gli stessi delle barre del grafico, e la
+  potenza passa nell'intensita' (smorzata sotto i 2500 W). Prima il colore
+  diceva solo la potenza: due wallbox davano due verdi quasi uguali, che si
+  leggevano come una differenza fra loro invece che fra i watt. Con una
+  wallbox sola non cambia niente
+- CHG in barra le etichette si accorciano: "EV from Grid" ed "EV from Solar"
+  diventano "EV Grid" ed "EV Solar", e "PV Produced" torna "PV Total". Le tre
+  voci EV condividono il prefisso e la riga sta in meno spazio
 ## [1.8.7] - 2026-10-03
 - CHG nella spiegazione la riga in denaro dice che soldi sono invece di "In
   denaro": "Costo" su EV from Grid e Import, "Guadagno" su Export,

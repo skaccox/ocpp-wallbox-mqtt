@@ -674,6 +674,17 @@ body.history-mode #status {
 .chgL { color:#4ade80; }
 .chgH { color:#22c55e; }
 
+/* Righe di ricarica di un impianto con piu' wallbox: il colore dice quale,
+   con gli stessi colori delle barre del grafico, e la potenza resta
+   nell'intensita'. I due verdi qui sopra valgono per l'impianto a una sola. */
+.wb0 { color:#a3e635; }
+.wb1 { color:#a855f7; }
+.wb2 { color:#f59e0b; }
+.wb3 { color:#14b8a6; }
+
+/* sotto i 2500 W: la stessa cosa, meno intensa */
+.lowP { opacity:.72; }
+
 .scp       { color:#f59e0b; }
 
 /* Increasing/Decreasing sono le manovre sul limite, non uno stato. Azzurro

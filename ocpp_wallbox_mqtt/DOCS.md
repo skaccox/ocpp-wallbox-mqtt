@@ -447,13 +447,13 @@ they measure:
 
 | in kWh | in money | what it is |
 |---|---|---|
-| `EV from Grid` | `EV Cost` | the energy bought to charge — charged minus the solar share — and what it cost, at the buying price |
+| `EV Grid` | `EV Cost` | the energy bought to charge — charged minus the solar share — and what it cost, at the buying price |
 | `Import` | `Import` | taken from the grid, and what it cost |
-| `EV from Solar` | `Solar Saved` | the solar that went into the cars, and what you did not have to buy for it |
+| `EV Solar` | `Solar Saved` | the solar that went into the cars, and what you did not have to buy for it |
 | `Export` | `Export` | fed into the grid, and what it earned |
 
 The last two of the six differ. In kWh they are `EV Charged` (everything that
-went into the cars, solar included) and `PV Produced` (what the plant made).
+went into the cars, solar included) and `PV Total` (what the plant made).
 Neither has a single price — one is energy paid at two different prices, the
 other is partly self-consumed and partly sold — so in money they give way to
 **`Buy`** and **`Sell`**: the average price of the period, weighted by the kWh
