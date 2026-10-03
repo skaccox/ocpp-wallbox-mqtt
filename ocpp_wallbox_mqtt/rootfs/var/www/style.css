@@ -617,6 +617,21 @@ body.history-mode #status {
   #powerChart{ height:120px; }
 }
 
+/* L'unita' accanto al valore, su schermo largo: "25,00 kWh" si legge in un
+   colpo solo, mentre staccata dall'icona va cercata. Quella accanto all'icona
+   sparisce nelle caselle che ce l'hanno qui, non in tutte: Buy e Sell tengono
+   il loro "/kWh" li', perche' il loro valore porta gia' il simbolo. */
+@media (min-width:601px){
+  .historyStats .unita .statIcon .u { display: none; }
+
+  .historyStats .unita strong::after {
+    content: " " attr(data-unita);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+}
+
 @media (max-width:600px){
   /* In anno le caselle sono sei e per pochi pixel andavano a capo. Si stringe
      lo spazio fra loro e i margini della barra, non il corpo del testo: i

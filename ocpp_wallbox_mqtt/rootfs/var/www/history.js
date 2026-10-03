@@ -186,6 +186,24 @@ function applyUnits(){
     if (el) el.textContent = "/kWh";
   }
 
+  // Su schermo largo l'unita' si legge meglio attaccata al valore che accanto
+  // all'icona, e il posto c'e'. La scrive il CSS da questo attributo, e la
+  // classe accende la regola: cosi' su mobile, dove lo spazio non c'e',
+  // resta solo quella accanto all'icona senza dirla due volte.
+  //
+  // In denaro non serve: il simbolo di valuta sta gia' attaccato al numero.
+  const UNITA = {
+    statEvGrid: "kWh", statGridImport: "kWh", statPvCharged: "kWh",
+    statGridExport: "kWh", statCharged: "kWh", statSolar: "kWh",
+    statEv: "kW", statPvMax: "kW"
+  };
+  for (const [id, unita] of Object.entries(UNITA)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.dataset.unita = unita;
+    el.parentElement?.classList.toggle("unita", !moneyMode);
+  }
+
   // In denaro restano solo le voci che SONO soldi: un conteggio di sessioni,
   // una potenza di picco o un'energia senza prezzo unico non ne hanno uno, e
   // in mezzo agli importi confondono. Al loro posto compaiono le tariffe e il

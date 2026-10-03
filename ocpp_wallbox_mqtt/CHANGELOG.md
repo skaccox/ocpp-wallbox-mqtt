@@ -1,4 +1,10 @@
 # Changelog
+## [1.8.12] - 2026-10-03
+- CHG su schermo largo l'unita' di misura sta accanto al valore ("25,00 kWh")
+  invece che accanto all'icona: attaccata al numero si legge in un colpo solo,
+  e in quella riga il posto c'e'. Su mobile resta dov'era, che li' lo spazio
+  non c'e'. In denaro non cambia niente, perche' il simbolo di valuta e' gia'
+  attaccato al valore
 ## [1.8.11] - 2026-10-03
 - FIX il viola della seconda wallbox era schiarito troppo e a piena potenza
   sbiadiva: ora sta a meta' strada (#c084fc), leggibile sul nero senza
