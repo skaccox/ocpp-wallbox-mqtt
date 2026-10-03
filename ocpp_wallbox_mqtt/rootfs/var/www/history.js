@@ -14,6 +14,10 @@ let moneyMode = false;
 // viene riscritta sia quando cambiano i dati sia quando si cambia modalita'.
 let lastMoney = null;
 
+// Energie del periodo in kWh, per le spiegazioni: "di cui X dalla rete" e
+// "quota solare" parlano di energia anche quando la barra mostra denaro.
+let lastEnergia = { charge: 0, daRete: 0, pct: 0 };
+
 // Come ridisegnare le sole caselle della barra con i dati gia' in mano. Il
 // grafico e' in kWh in entrambe le modalita': rileggere tutto per cambiare
 // valuta faceva lampeggiare un disegno identico a quello di prima.
@@ -160,22 +164,21 @@ function fmtEnergy(kwh, money){
 function applyUnits(){
   const cur = priceTables().cur;
 
-  for (const id of ["uCharged", "uPvCharged", "uGridExport", "uGridImport"]) {
+  for (const id of ["uEvGrid", "uPvCharged", "uGridExport", "uGridImport"]) {
     const el = document.getElementById(id);
     if (el) el.textContent = moneyMode ? "" : "kWh";
   }
 
-  // in denaro non e' piu' "quanto solare e' entrato" ma "quanto ha fatto
-  // risparmiare", e il nome deve dirlo
-  const lbl = document.getElementById("lblPvCharged");
-  if (lbl) lbl.textContent = moneyMode ? "PV Saved" : "PV Charged";
-
-  // In kWh "Grid" non serve: sono le uniche due voci che parlano di rete e
-  // l'icona lo dice gia'. In denaro resta, se no accanto a Buy e Sell quattro
-  // parole corte - Import, Export, Buy, Sell - si confonderebbero fra loro.
-  for (const voce of ["Import", "Export"]) {
-    const el = document.getElementById(`lblGrid${voce}`);
-    if (el) el.textContent = moneyMode ? `Grid ${voce}` : voce;
+  // Le due caselle della ricarica cambiano nome con la modalita': la prima da
+  // energia presa dalla rete diventa il suo costo, la seconda da energia
+  // solare diventa la spesa che quel solare ha evitato.
+  const NOMI = {
+    lblEvGrid:    ["EV from Grid",  "EV Cost"],
+    lblPvCharged: ["EV from Solar", "Solar Saved"]
+  };
+  for (const [id, [inKwh, inDenaro]] of Object.entries(NOMI)) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = moneyMode ? inDenaro : inKwh;
   }
 
   for (const id of ["uPriceImport", "uPriceExport"]) {
@@ -183,15 +186,16 @@ function applyUnits(){
     if (el) el.textContent = "/kWh";
   }
 
-  // In denaro restano solo le voci che SONO soldi: un conteggio di sessioni o
-  // una potenza di picco non hanno un prezzo, e in mezzo agli euro
-  // confondono. Al loro posto compaiono le tariffe applicate.
-  for (const id of ["statSessions", "statEv", "statPvChargedPct",
-                    "statPvMax", "statSolar"]) {
+  // In denaro restano solo le voci che SONO soldi: un conteggio di sessioni,
+  // una potenza di picco o un'energia senza prezzo unico non ne hanno uno, e
+  // in mezzo agli importi confondono. Al loro posto compaiono le tariffe e il
+  // risparmio netto.
+  for (const id of ["statCharged", "statSolar", "statPvChargedPct",
+                    "statSessions", "statEv", "statPvMax"]) {
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "none" : "";
   }
-  for (const id of ["statPriceImport", "statPriceExport"]) {
+  for (const id of ["statPriceImport", "statPriceExport", "statSolarNet"]) {
     const host = document.getElementById(id)?.parentElement;
     if (host) host.style.display = moneyMode ? "" : "none";
   }
@@ -201,8 +205,8 @@ function applyUnits(){
   // energie, e un'energia non ha un verso del denaro. I prezzi restano neutri
   // perche' non sono importi: dicono quanto vale un kWh, non quanto e' uscito.
   const TINTE = {
-    gain: ["statPvCharged", "statGridExport"],
-    cost: ["statCharged", "statGridImport"]
+    gain: ["statPvCharged", "statSolarNet", "statGridExport"],
+    cost: ["statEvGrid", "statGridImport"]
   };
   for (const [tinta, ids] of Object.entries(TINTE)) {
     for (const id of ids) {
@@ -210,16 +214,6 @@ function applyUnits(){
       if (host) host.classList.toggle(tinta, moneyMode);
     }
   }
-
-  for (const [id, pos] of Object.entries(ORDINE_DENARO)) {
-    const host = document.getElementById(id)?.parentElement;
-    if (host) host.style.order = moneyMode ? pos : "";
-  }
-
-  // il riquadro "No data found" sta nello stesso contenitore: senza un posto
-  // suo, con gli altri spostati finirebbe davanti a tutti
-  const err = document.getElementById("historyError");
-  if (err) err.style.order = moneyMode ? 9 : "";
 
   applyStatTips();
 
@@ -270,20 +264,6 @@ function setPriceStat(id, media){
   setStatWithSplit(id, media == null ? "—" : fmtPrice(media), []);
 }
 
-// In denaro l'ordine del DOM non racconta piu' niente: e' pensato per i kWh,
-// dove le voci stanno in gruppi per argomento. Qui il filo e' un altro: prima
-// quello che esce, poi quello che non e' uscito o e' entrato, infine le
-// tariffe che hanno prodotto quei numeri - che sono ingressi del calcolo, non
-// risultati. Si sposta solo la vista, il DOM resta quello buono per i kWh.
-const ORDINE_DENARO = {
-  statCharged:      1,   // speso per la ricarica
-  statGridImport:   2,   // speso in tutto: la ricarica ne e' una parte
-  statPvCharged:    3,   // non speso grazie al sole
-  statGridExport:   4,   // incassato
-  statPriceImport:  5,
-  statPriceExport:  6
-};
-
 // Una spiegazione per modalita': in euro la casella misura un'altra cosa, e
 // un testo unico costringerebbe a leggere anche la meta' che non serve.
 const STAT_TIPS = {
@@ -293,13 +273,19 @@ const STAT_TIPS = {
   statEv: {
     kwh: "Potenza massima di ricarica raggiunta."
   },
-  statCharged: {
-    kwh: "Energia totale caricata nelle auto.",
+  statEvGrid: {
+    kwh: "Energia comprata dalla rete per caricare: il caricato meno la quota solare.",
     eur: "Costo della ricarica: la sola parte presa dalla rete, al prezzo d'acquisto. Il solare non si paga."
   },
+  statCharged: {
+    kwh: "Energia totale caricata nelle auto, solare compreso."
+  },
   statPvCharged: {
-    kwh: "Energia solare caricata nelle auto.",
-    eur: "Spesa evitata: quanto avresti pagato comprando dalla rete l'energia solare finita nelle auto. Il netto toglie il mancato incasso dell'export."
+    kwh: "Energia solare finita nelle auto.",
+    eur: "Spesa evitata: quanto avresti pagato comprando dalla rete l'energia solare finita nelle auto."
+  },
+  statSolarNet: {
+    eur: "Risparmio netto: la spesa evitata meno il mancato incasso dell'energia che avresti immesso in rete."
   },
   statPvChargedPct: {
     kwh: "Quota della ricarica coperta dal solare."
@@ -308,7 +294,7 @@ const STAT_TIPS = {
     kwh: "Potenza massima prodotta dal fotovoltaico."
   },
   statSolar: {
-    kwh: "Energia totale prodotta dal fotovoltaico."
+    kwh: "Energia prodotta dal fotovoltaico."
   },
   statGridExport: {
     kwh: "Energia immessa in rete.",
@@ -326,6 +312,14 @@ const STAT_TIPS = {
   }
 };
 
+// Vero sullo schermo stretto, lo stesso limite del CSS. Alcune spiegazioni
+// esistono solo qui, perche' li' le caselle che le direbbero non ci sono.
+function schermoStretto(){
+  return typeof window !== "undefined"
+      && typeof window.matchMedia === "function"
+      && window.matchMedia("(max-width:600px)").matches;
+}
+
 function applyStatTips(){
   for (const [id, testi] of Object.entries(STAT_TIPS)) {
     const host = document.getElementById(id)?.parentElement;
@@ -333,15 +327,30 @@ function applyStatTips(){
 
     const testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
 
-    // Il risparmio netto sta qui invece che in una casella sua: e' un numero
-    // che si guarda una volta ogni tanto, e in barra rubava spazio a quelli
-    // che si guardano sempre. Sta su una riga sua perche' e' un valore, e in
-    // coda alla spiegazione si leggeva come parte del discorso.
-    let guadagno = "";
-    if (id === "statPvCharged" && moneyMode && lastMoney && lastMoney.netPv > 0) {
-      const perWb = wbBreakdownParts(lastMoney.netByWb || null, priceTables().cur);
-      guadagno = `Netto ${fmtMoney(lastMoney.netPv)}`;
-      if (perWb.length) guadagno += ` (${perWb.join(" · ")})`;
+    // Righe di valori sotto la spiegazione: in verde quelle che sono un
+    // guadagno, neutre le altre.
+    let verde = "";
+    const neutre = [];
+
+    // La casella mostra la sola parte presa dalla rete, che da sola non dice
+    // quanto grossa sia: il totale sta qui, in kWh anche in denaro, perche' e'
+    // energia in tutte e due le viste.
+    if (id === "statEvGrid" && lastEnergia.charge > 0) {
+      neutre.push(`Caricato in totale: ${fmtNum(lastEnergia.charge, 2)} kWh, `
+                + `di cui ${fmtNum(lastEnergia.daRete, 2)} dalla rete`);
+    }
+
+    // Su schermo largo quota solare e netto hanno una casella ciascuno: qui
+    // sarebbero una ripetizione. Su mobile quelle caselle non ci sono, e
+    // questo e' l'unico posto dove leggerli.
+    if (id === "statPvCharged" && schermoStretto()) {
+      if (lastEnergia.pct > 0) {
+        neutre.push(`Quota solare: ${lastEnergia.pct.toFixed(0)}%`);
+      }
+      if (moneyMode && lastMoney && lastMoney.netPv > 0) {
+        verde = `Netto: ${fmtMoney(lastMoney.netPv)} = spesa evitata meno il `
+              + `mancato incasso dell'export`;
+      }
     }
 
     // In barra il prezzo e' uno solo, la media del periodo: le tariffe che
@@ -350,15 +359,16 @@ function applyStatTips(){
     const elenco = id === "statPriceImport" ? lastMoney?.pricesImport
                  : id === "statPriceExport" ? lastMoney?.pricesExport
                  : null;
-    const tariffe = (moneyMode && elenco && elenco.length > 1)
-      ? elenco.map(r => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`).join("\n")
-      : "";
+    if (moneyMode && elenco && elenco.length > 1) {
+      neutre.push(...elenco.map(r => `${fmtYmd(r.from)} ${fmtPrice(r.price)}`));
+    }
 
+    const lista = neutre.join("\n");
     host.dataset.tipMain = testo;
-    host.dataset.tipNet = guadagno;
-    host.dataset.tipList = tariffe;
+    host.dataset.tipNet = verde;
+    host.dataset.tipList = lista;
 
-    const coda = guadagno || tariffe;
+    const coda = [verde, lista].filter(Boolean).join("\n");
     host.title = coda ? testo + "\n" + coda : testo;
   }
 }
@@ -1256,18 +1266,48 @@ function setStatWithSplit(id, text, parts){
 // la quota solare, che non si paga. Senza la scomposizione del FV per wallbox
 // il costo per wallbox non e' calcolabile e le righe spariscono: meglio
 // nessun dettaglio che un dettaglio inventato.
-function setChargedStat(totKwh, byWb, money){
-  const pieno = (totKwh > 0 || Object.keys(byWb || {}).length);
+// Quanto ha preso dalla rete ciascuna wallbox: il suo caricato meno il suo
+// solare. In denaro lo stesso conto lo ha gia' fatto dayMoney, col prezzo del
+// giorno: li' si usa quello.
+function evGridByWb(chargeByWb, pvByWb){
+  if (!chargeByWb) return null;
 
-  if (!moneyMode) {
-    setStatWithSplit("statCharged", pieno ? fmtNum(totKwh, 2) : "—",
-                     wbBreakdownParts(byWb, ""));
+  const out = {};
+  for (const wb of Object.keys(chargeByWb)) {
+    out[wb] = Math.max(0, (chargeByWb[wb] || 0) - ((pvByWb || {})[wb] || 0));
+  }
+  return out;
+}
+
+// La prima casella della barra: l'energia comprata per caricare, o quanto e'
+// costata. E' il numero che si paga, e per questo sta in testa; il totale
+// caricato, solare compreso, ha una casella sua piu' in la'.
+function setEvGridStat(totCharge, totPv, chargeByWb, pvByWb, money){
+  const m = money || {};
+  const pieno = ((totCharge || 0) > 0 || Object.keys(chargeByWb || {}).length);
+  const daRete = Math.max(0, (totCharge || 0) - (totPv || 0));
+
+  lastEnergia.charge = totCharge || 0;
+  lastEnergia.daRete = daRete;
+
+  if (moneyMode) {
+    setStatWithSplit("statEvGrid", pieno ? fmtMoney(m.costEv) : "—",
+                     m.costByWb ? wbBreakdownParts(m.costByWb, priceTables().cur) : []);
     return;
   }
 
-  const m = money || {};
-  setStatWithSplit("statCharged", pieno ? fmtMoney(m.costEv) : "—",
-                   m.costByWb ? wbBreakdownParts(m.costByWb, priceTables().cur) : []);
+  setStatWithSplit("statEvGrid", pieno ? fmtNum(daRete, 2) : "—",
+                   wbBreakdownParts(evGridByWb(chargeByWb, pvByWb), ""));
+}
+
+// Il totale caricato, solare compreso. Esiste solo in kWh: in denaro sarebbe
+// un'energia pagata a due prezzi diversi - una parte dalla rete, una gratis -
+// e un importo solo non direbbe quale.
+function setChargedStat(totKwh, byWb){
+  const pieno = (totKwh > 0 || Object.keys(byWb || {}).length);
+
+  setStatWithSplit("statCharged", pieno ? fmtNum(totKwh, 2) : "—",
+                   wbBreakdownParts(byWb, ""));
 }
 
 // "Giardino 62% · Garage 40%": ciascuna sul PROPRIO caricato, non sul totale,
@@ -1300,9 +1340,16 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
                    totPv > 0 ? (moneyMode ? fmtMoney(valore) : fmtNum(valore, 2)) : "—",
                    wbBreakdownParts(parti || null, moneyMode ? cur : ""));
 
-  // il netto finisce nella spiegazione di questa casella
+  // Il netto ha una casella sua su schermo largo; su mobile, dove non c'e',
+  // lo dice la spiegazione qui sopra.
+  setStatWithSplit("statSolarNet",
+                   (moneyMode && (m.netPv || 0) > 0) ? fmtMoney(m.netPv) : "—",
+                   moneyMode ? wbBreakdownParts(m.netByWb || null, cur) : []);
+
   lastMoney = money || null;
+  lastEnergia.pct = pct;
   applyStatTips();
+
   setStatWithSplit("statPvChargedPct", pct > 0 ? pct.toFixed(0) + "%" : "—",
                    wbPvPctParts(pvByWb, chargeByWb));
 }
@@ -1332,7 +1379,8 @@ function updatePeriodStats(totals) {
 
   lastStats = () => updatePeriodStats(totals);
 
-  setChargedStat(totCharge, byWb, money);
+  setEvGridStat(totCharge, totPvCharged, byWb, pvByWb, money);
+  setChargedStat(totCharge, byWb);
   setPvStats(totPvCharged, totCharge, pvByWb, byWb, money);
   setPriceStats(money, { imp: sum("importKwh"), exp: sum("exportKwh") });
   document.getElementById("statSessions").textContent = sessions || "—";
@@ -1513,15 +1561,12 @@ function showNoDataMessage(){
   // quelle del giorno precedente sotto a un "—"
   for (const s of document.querySelectorAll("#historyStats .wbSplit")) s.remove();
 
-  document.getElementById("statEv").textContent = "—";
-  document.getElementById("statCharged").textContent = "—";
-  document.getElementById("statPvCharged").textContent = "—";
-  document.getElementById("statPvChargedPct").textContent = "—";
-  document.getElementById("statPvMax").textContent = "—";
-  document.getElementById("statSolar").textContent = "—";
-  document.getElementById("statGridExport").textContent = "—";
-  document.getElementById("statGridImport").textContent = "—";
-  document.getElementById("statSessions").textContent = "—";
+  for (const id of ["statEvGrid", "statCharged", "statPvCharged", "statSolarNet",
+                    "statPvChargedPct", "statEv", "statPvMax", "statSolar",
+                    "statGridExport", "statGridImport", "statSessions"]) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "—";
+  }
 
 
   if (historyChart) {
@@ -1710,7 +1755,8 @@ const moneyDay = dayMoney(ymd, {
 });
 
 lastStats = () => {
-  setChargedStat(totalKwh, chargeByWbDay, moneyDay);
+  setEvGridStat(totalKwh, pvChargedKwh, chargeByWbDay, pvByWbDay, moneyDay);
+  setChargedStat(totalKwh, chargeByWbDay);
   setPvStats(pvChargedKwh, totalKwh, pvByWbDay, chargeByWbDay, moneyDay);
   setPriceStats(moneyDay, { imp: gridImportKwh, exp: gridExportKwh });
 

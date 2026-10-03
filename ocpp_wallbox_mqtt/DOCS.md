@@ -441,24 +441,36 @@ These are **UI-only**: they never reach `ocpp.ini` and the Perl server knows
 nothing about them. They exist so the stats bar in **GRAPH** can show money
 instead of energy, by pressing the currency button next to DAY/WEEK/MONTH/YEAR.
 
-What each figure becomes when the button is on:
+The bar holds six boxes on any screen, and a few more where there is room
+for them. The first four are the same in both modes, and only change what
+they measure:
 
-| stat | in money |
-|---|---|
-| `EV Total` | what charging **cost**: the energy taken from the grid for the car — charged minus the solar share — at the buying price |
-| `PV Charged` | renamed **`PV Saved`**: what the solar saved, i.e. energy you did not have to buy, at the buying price. Its tooltip also gives the **net**, which subtracts the export you gave up: `kWh × (price_import − price_export)` |
-| `Grid Import` | spent, at the buying price |
-| `Grid Export` | earned, at the selling price |
+| in kWh | in money | what it is |
+|---|---|---|
+| `EV from Grid` | `EV Cost` | the energy bought to charge — charged minus the solar share — and what it cost, at the buying price |
+| `Import` | `Import` | taken from the grid, and what it cost |
+| `EV from Solar` | `Solar Saved` | the solar that went into the cars, and what you did not have to buy for it |
+| `Export` | `Export` | fed into the grid, and what it earned |
 
-Two columns appear as well, **`Buy`** and **`Sell`**: the average
-price of the period, weighted by the kWh taken from (or fed into) the grid, so
-a tariff that lasted two days does not count as much as one that lasted six
-months. When more than one tariff was in force, the tooltip lists them, each
-with the date it started from.
+The last two of the six differ. In kWh they are `EV Charged` (everything that
+went into the cars, solar included) and `PV Produced` (what the plant made).
+Neither has a single price — one is energy paid at two different prices, the
+other is partly self-consumed and partly sold — so in money they give way to
+**`Buy`** and **`Sell`**: the average price of the period, weighted by the kWh
+taken from (or fed into) the grid, so a tariff that lasted two days does not
+count as much as one that lasted six months. When more than one tariff was in
+force, the tooltip lists them, each with the date it started from.
 
-`EV Max`, `PV Max`, `PV Total` and `Sessions` stay as they are: a power or a
-count has no price, and how much of the production was self-consumed rather
-than exported is not known from these files.
+On a wide screen the bar also shows `Solar %`, `Sessions`, `EV Max` and
+`PV Max` in kWh, and `Solar Net` in money — the saving minus the export you
+gave up, `kWh × (price_import − price_export)`. On a phone those boxes are
+not shown: `Solar %` and `Solar Net` move into the tooltip of the box next to
+them, which is the only place left to read them.
+
+Amber marks what goes out (`EV Cost`, `Import`), green what comes in or never
+left (`Solar Saved`, `Solar Net`, `Export`). `Buy` and `Sell` stay neutral:
+they are not amounts, they say what a kWh is worth. In kWh there is no
+colour, because an energy has no direction.
 
 #### The chart follows, in WEEK/MONTH/YEAR
 

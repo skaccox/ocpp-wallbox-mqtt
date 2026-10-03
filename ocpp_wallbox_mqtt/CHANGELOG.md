@@ -1,4 +1,24 @@
 # Changelog
+## [1.8.1] - 2026-10-03
+- ADD casella "EV from Grid" in testa alla barra: l'energia comprata per
+  caricare, cioe' il caricato meno la quota solare. In denaro diventa "EV
+  Cost", il numero che si paga davvero, e per questo sta per prima
+- CHG "EV Total" si chiama "EV Charged" e in denaro sparisce: e' energia
+  pagata a due prezzi diversi - una parte dalla rete, una gratis - e un
+  importo solo non direbbe quale
+- CHG "PV Charged" diventa "EV from Solar", e in denaro "Solar Saved";
+  "PV Total" diventa "PV Produced" e "PV %" diventa "Solar %"
+- ADD casella "Solar Net" in denaro, su schermo largo: la spesa evitata meno
+  il mancato incasso dell'export. Su mobile resta nella spiegazione di Solar
+  Saved, insieme alla quota solare, perche' li' quelle caselle non ci sono
+- CHG ordine della barra: EV from Grid, Import, EV from Solar, Export, poi
+  EV Charged e PV Produced in kWh o Buy e Sell in denaro. Le spese e gli
+  incassi si alternano a coppie, e la prima casella e' quella che si paga
+- CHG la spiegazione della prima casella dice sempre quanto si e' caricato in
+  tutto e quanto di quello veniva dalla rete: la casella mostra solo la
+  seconda meta', che da sola non dice quanto sia grossa
+- CHG le due tendine su desktop si allargano (wallbox 104px, bars/lines 88px):
+  le scritte non ci stavano. Su mobile restano come sono
 ## [1.8.0] - 2026-10-02
 Riassunto della serie 1.7.x: qui restano le cose che si vedono, senza i
 ritocchi intermedi (misure dei menu, colori provati e rifatti, passaggi poi
