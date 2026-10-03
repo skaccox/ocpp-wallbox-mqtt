@@ -1,4 +1,9 @@
 # Changelog
+## [1.8.7] - 2026-10-03
+- CHG nella spiegazione la riga in denaro dice che soldi sono invece di "In
+  denaro": "Costo" su EV from Grid e Import, "Guadagno" su Export,
+  "Risparmio" su EV from Solar. Il colore non bastava: il solare finito nelle
+  auto e' verde come l'export, ma e' una spesa evitata, non un incasso
 ## [1.8.6] - 2026-10-03
 - CHG nel tooltip i valori passano a corpo 16: sono il motivo per cui lo si
   apre, e in corpo 11 come la frase si leggevano come testo fra il testo. La

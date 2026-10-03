@@ -334,17 +334,18 @@ function schermoStretto(){
 // come leggere la stessa riga nell'altra. Il numero e' gia' in casa, e averlo
 // nella spiegazione evita di premere il tasto solo per guardarlo.
 //
-// "verso" serve al colore: una spesa resta una spesa anche quando la si
-// guarda dalla spiegazione.
+// "verso" serve al colore - una spesa resta una spesa anche vista da qui - e
+// "nome" dice che cosa sono quei soldi. Non basta il verso: il solare
+// autoconsumato e' verde come l'export, ma e' un risparmio, non un incasso.
 const ALTRA_FACCIA = {
   statEvGrid:     { kwh: () => lastEnergia.daRete, eur: () => lastMoney?.costEv,
-                    verso: "cost" },
+                    verso: "cost", nome: "Costo" },
   statPvCharged:  { kwh: () => lastEnergia.pv,     eur: () => lastMoney?.savingPv,
-                    verso: "gain" },
+                    verso: "gain", nome: "Risparmio" },
   statGridImport: { kwh: () => lastEnergia.imp,    eur: () => lastMoney?.costImport,
-                    verso: "cost" },
+                    verso: "cost", nome: "Costo" },
   statGridExport: { kwh: () => lastEnergia.exp,    eur: () => lastMoney?.revenueExport,
-                    verso: "gain" }
+                    verso: "gain", nome: "Guadagno" }
 };
 
 function applyStatTips(){
@@ -364,7 +365,7 @@ function applyStatTips(){
     let valore = "", classeValore = "";
     const faccia = ALTRA_FACCIA[id];
     if (faccia && !moneyMode && faccia.eur() > 0) {
-      valore = `In denaro: ${fmtMoney(faccia.eur())}`;
+      valore = `${faccia.nome}: ${fmtMoney(faccia.eur())}`;
       classeValore = faccia.verso === "cost" ? "tipCost" : "tipGain";
     } else if (faccia && moneyMode && faccia.kwh() > 0) {
       valore = `In energia: ${fmtNum(faccia.kwh(), 2)} kWh`;
