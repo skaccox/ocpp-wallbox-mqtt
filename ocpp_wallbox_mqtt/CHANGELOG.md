@@ -1,4 +1,10 @@
 # Changelog
+## [1.8.14] - 2026-10-03
+- FIX nelle righe per wallbox l'unita' andava a capo sotto al nome invece di
+  stare in coda al valore: ogni riga e' una colonna, e il pezzo aggiunto ci
+  finiva dentro come se fosse un'altra riga. Ora quelle righe sono orizzontali
+  e lo spazio prima dell'unita' lo fa un margine, che in un contenitore flex
+  uno spazio nel testo si perderebbe
 ## [1.8.13] - 2026-10-03
 - FIX su schermo largo l'unita' mancava sotto le caselle con due wallbox:
   "Giardino 5,00" invece di "Giardino 5,00 kWh". Ora la porta anche la

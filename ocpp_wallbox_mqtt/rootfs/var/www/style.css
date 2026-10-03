@@ -624,16 +624,16 @@ body.history-mode #status {
 @media (min-width:601px){
   .historyStats .unita .statIcon .u { display: none; }
 
-  .historyStats .unita strong::after {
+  .historyStats .unita strong::after,
+  .historyStats .unita .wbPart::after {
     content: var(--unita, "");
+    margin-left: 3px;
+  }
+
+  .historyStats .unita strong::after {
     font-size: 11px;
     font-weight: 400;
     color: var(--muted);
-  }
-
-  /* anche sotto, dove le wallbox sono due: "Giardino 5,00 kWh" */
-  .historyStats .unita .wbPart::after {
-    content: var(--unita, "");
   }
 }
 
@@ -861,6 +861,14 @@ body.history-mode #status {
 }
 
 /* il netto sotto al lordo: piu' piccolo del valore, piu' grande delle wallbox */
+/* La riga della singola wallbox: .historyStats span la renderebbe una
+   colonna, e l'unita' scritta dal ::after andrebbe a capo sotto al nome
+   invece di stare in coda al valore. */
+.historyStats .wbPart {
+  flex-direction: row;
+  align-items: baseline;
+}
+
 .wbSplit {
   display: inline-flex;
   flex-direction: column;

@@ -203,7 +203,7 @@ function applyUnits(){
 
     // Proprieta' sulla casella invece che sul valore: si eredita, quindi la
     // prendono anche le righe per wallbox, comprese quelle create dopo.
-    host.style.setProperty("--unita", `" ${unita}"`);
+    host.style.setProperty("--unita", `"${unita}"`);
     host.classList.toggle("unita", !moneyMode);
   }
 
