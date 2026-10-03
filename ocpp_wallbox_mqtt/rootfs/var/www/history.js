@@ -352,7 +352,7 @@ function applyStatTips(){
     const host = document.getElementById(id)?.parentElement;
     if (!host) continue;
 
-    const testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
+    let testo = (moneyMode ? testi.eur : testi.kwh) || testi.kwh || testi.eur || "";
 
     // Righe di valori sotto la spiegazione: in verde quelle che sono un
     // guadagno, neutre le altre.
@@ -371,18 +371,12 @@ function applyStatTips(){
       classeValore = "tipKwh";
     }
 
-    // La prima casella mostra la sola parte presa dalla rete, che da sola non
-    // dice quanto sia grossa: il totale caricato sta qui. E' una riga in kWh,
-    // quindi celeste in tutte e due le modalita'; in denaro fa anche da riga
-    // dell'altra faccia, e quella non serve piu'.
+    // La prima casella conta la sola parte presa dalla rete, e da sola non
+    // dice quanto sia grossa: il totale caricato sta qui. Quanto ne venga
+    // dalla rete non si ripete, perche' e' il numero in barra.
     let energia = "";
     if (id === "statEvGrid" && lastEnergia.charge > 0) {
-      energia = `Caricato in totale: ${fmtNum(lastEnergia.charge, 2)} kWh, `
-              + `di cui ${fmtNum(lastEnergia.daRete, 2)} dalla rete`;
-      if (moneyMode) {
-        valore = "";
-        classeValore = "";
-      }
+      energia = `Caricato in totale: ${fmtNum(lastEnergia.charge, 2)} kWh`;
     }
 
     // Su schermo largo quota solare e netto hanno una casella ciascuno: qui
@@ -393,8 +387,11 @@ function applyStatTips(){
         neutre.push(`Quota solare: ${lastEnergia.pct.toFixed(0)}%`);
       }
       if (moneyMode && lastMoney && lastMoney.netPv > 0) {
-        verde = `Netto: ${fmtMoney(lastMoney.netPv)} = spesa evitata meno il `
-              + `mancato incasso dell'export`;
+        // il numero sta coi valori, il perche' in coda alla spiegazione:
+        // messo tutto sulla riga verde sarebbe stata una frase in corpo
+        // grande, che e' il corpo dei numeri
+        verde = `Netto: ${fmtMoney(lastMoney.netPv)}`;
+        testo += " Il netto toglie il mancato incasso dell'export.";
       }
     }
 

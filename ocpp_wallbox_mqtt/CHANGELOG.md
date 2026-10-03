@@ -1,4 +1,14 @@
 # Changelog
+## [1.8.6] - 2026-10-03
+- CHG nel tooltip i valori passano a corpo 16: sono il motivo per cui lo si
+  apre, e in corpo 11 come la frase si leggevano come testo fra il testo. La
+  spiegazione resta piccola e grigia, in fondo
+- CHG la riga del totale caricato dice solo "Caricato in totale: 25,00 kWh":
+  quanto ne venga dalla rete e' il numero gia' in barra, ripeterlo non
+  aggiungeva niente. In denaro, dove in barra c'e' il costo, i kWh della
+  casella tornano sulla loro riga
+- CHG su mobile la riga del netto porta il solo importo e il perche' passa in
+  coda alla spiegazione: una frase intera in corpo 16 sarebbe stata un blocco
 ## [1.8.5] - 2026-10-03
 - CHG la riga "Caricato in totale ... di cui ... dalla rete" e' celeste anche
   in modalita' kWh: sono kWh in tutte e due le viste, e restava l'unico punto
