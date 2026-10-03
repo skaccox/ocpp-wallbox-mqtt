@@ -1,4 +1,10 @@
 # Changelog
+## [1.8.10] - 2026-10-03
+- FIX nel log il viola della seconda wallbox era illeggibile sul nero: i
+  colori per wallbox passano a tinte piu' chiare, della stessa famiglia di
+  quelle del grafico - che sta su blu scuro e le regge - cosi' la wallbox
+  viola resta viola in tutte e due i posti. Le righe sotto i 2500 W si
+  smorzano meno (.72 -> .8), se no sul nero si perdeva quanto guadagnato
 ## [1.8.9] - 2026-10-03
 - FIX su mobile le sei caselle della barra andavano a capo per pochi pixel.
   Si stringono lo spazio fra loro (6px -> 4px) e i margini della barra
