@@ -16,7 +16,7 @@ let lastMoney = null;
 
 // Energie del periodo in kWh, per le spiegazioni: "di cui X dalla rete" e
 // "quota solare" parlano di energia anche quando la barra mostra denaro.
-let lastEnergia = { charge: 0, daRete: 0, pct: 0 };
+let lastEnergia = { charge: 0, daRete: 0, pv: 0, imp: 0, exp: 0, pct: 0 };
 
 // Come ridisegnare le sole caselle della barra con i dati gia' in mano. Il
 // grafico e' in kWh in entrambe le modalita': rileggere tutto per cambiare
@@ -215,6 +215,16 @@ function applyUnits(){
     }
   }
 
+  // In kWh la barra non e' tutta energia: ci sono un conteggio, una
+  // percentuale e due potenze. Il celeste segna i kWh e lascia bianco il
+  // resto, cosi' si vede quali caselle si sommano fra loro.
+  const ENERGIE = ["statEvGrid", "statGridImport", "statPvCharged",
+                   "statGridExport", "statCharged", "statSolar"];
+  for (const id of ENERGIE) {
+    const host = document.getElementById(id)?.parentElement;
+    if (host) host.classList.toggle("kwh", !moneyMode);
+  }
+
   applyStatTips();
 
   const btn = document.getElementById("btnMoney");
@@ -320,6 +330,23 @@ function schermoStretto(){
       && window.matchMedia("(max-width:600px)").matches;
 }
 
+// Le quattro caselle che esistono in tutte e due le modalita': qui si dice
+// come leggere la stessa riga nell'altra. Il numero e' gia' in casa, e averlo
+// nella spiegazione evita di premere il tasto solo per guardarlo.
+//
+// "verso" serve al colore: una spesa resta una spesa anche quando la si
+// guarda dalla spiegazione.
+const ALTRA_FACCIA = {
+  statEvGrid:     { kwh: () => lastEnergia.daRete, eur: () => lastMoney?.costEv,
+                    verso: "cost" },
+  statPvCharged:  { kwh: () => lastEnergia.pv,     eur: () => lastMoney?.savingPv,
+                    verso: "gain" },
+  statGridImport: { kwh: () => lastEnergia.imp,    eur: () => lastMoney?.costImport,
+                    verso: "cost" },
+  statGridExport: { kwh: () => lastEnergia.exp,    eur: () => lastMoney?.revenueExport,
+                    verso: "gain" }
+};
+
 function applyStatTips(){
   for (const [id, testi] of Object.entries(STAT_TIPS)) {
     const host = document.getElementById(id)?.parentElement;
@@ -332,12 +359,30 @@ function applyStatTips(){
     let verde = "";
     const neutre = [];
 
-    // La casella mostra la sola parte presa dalla rete, che da sola non dice
-    // quanto grossa sia: il totale sta qui, in kWh anche in denaro, perche' e'
-    // energia in tutte e due le viste.
+    // Lo stesso numero visto dall'altra parte: in kWh quanto fa in denaro, in
+    // denaro da quanta energia viene.
+    let valore = "", classeValore = "";
+    const faccia = ALTRA_FACCIA[id];
+    if (faccia && !moneyMode && faccia.eur() > 0) {
+      valore = `In denaro: ${fmtMoney(faccia.eur())}`;
+      classeValore = faccia.verso === "cost" ? "tipCost" : "tipGain";
+    } else if (faccia && moneyMode && faccia.kwh() > 0) {
+      valore = `In energia: ${fmtNum(faccia.kwh(), 2)} kWh`;
+      classeValore = "tipKwh";
+    }
+
+    // La prima casella mostra la sola parte presa dalla rete, che da sola non
+    // dice quanto sia grossa: il totale caricato sta qui. E' una riga in kWh,
+    // quindi celeste in tutte e due le modalita'; in denaro fa anche da riga
+    // dell'altra faccia, e quella non serve piu'.
+    let energia = "";
     if (id === "statEvGrid" && lastEnergia.charge > 0) {
-      neutre.push(`Caricato in totale: ${fmtNum(lastEnergia.charge, 2)} kWh, `
-                + `di cui ${fmtNum(lastEnergia.daRete, 2)} dalla rete`);
+      energia = `Caricato in totale: ${fmtNum(lastEnergia.charge, 2)} kWh, `
+              + `di cui ${fmtNum(lastEnergia.daRete, 2)} dalla rete`;
+      if (moneyMode) {
+        valore = "";
+        classeValore = "";
+      }
     }
 
     // Su schermo largo quota solare e netto hanno una casella ciascuno: qui
@@ -365,11 +410,16 @@ function applyStatTips(){
 
     const lista = neutre.join("\n");
     host.dataset.tipMain = testo;
+    host.dataset.tipValue = valore;
+    host.dataset.tipValueClass = classeValore;
+    host.dataset.tipKwh = energia;
     host.dataset.tipNet = verde;
     host.dataset.tipList = lista;
 
-    const coda = [verde, lista].filter(Boolean).join("\n");
-    host.title = coda ? testo + "\n" + coda : testo;
+    // Prima i numeri, poi il discorso: chi apre la spiegazione cerca un
+    // valore, e la frase che lo descrive serve dopo, per capirlo.
+    host.title = [valore, energia, verde, lista, testo]
+      .filter(Boolean).join("\n");
   }
 }
 
@@ -395,22 +445,20 @@ function setupStatTips(){
     ev.stopPropagation();
 
     tip.textContent = "";
-    const main = document.createElement("div");
-    main.textContent = box.dataset.tipMain || box.title;
-    tip.appendChild(main);
 
-    if (box.dataset.tipNet) {
-      const net = document.createElement("div");
-      net.className = "tipNet";
-      net.textContent = box.dataset.tipNet;
-      tip.appendChild(net);
-    }
-
-    if (box.dataset.tipList) {
-      const righe = document.createElement("div");
-      righe.className = "tipList";
-      righe.textContent = box.dataset.tipList;
-      tip.appendChild(righe);
+    // i valori per primi, ciascuno col suo colore, e la spiegazione in fondo
+    for (const [testo, classe] of [
+      [box.dataset.tipValue, box.dataset.tipValueClass || "tipList"],
+      [box.dataset.tipKwh, "tipKwh"],
+      [box.dataset.tipNet, "tipNet"],
+      [box.dataset.tipList, "tipList"],
+      [box.dataset.tipMain || box.title, "tipMain"]
+    ]) {
+      if (!testo) continue;
+      const riga = document.createElement("div");
+      riga.className = classe;
+      riga.textContent = testo;
+      tip.appendChild(riga);
     }
 
     tip.style.display = "block";
@@ -443,6 +491,8 @@ function setPriceStats(money, energie){
 
   // le singole tariffe, con la loro data, stanno nella spiegazione
   lastMoney = money || lastMoney;
+  lastEnergia.imp = e.imp || 0;
+  lastEnergia.exp = e.exp || 0;
   applyStatTips();
 }
 
@@ -743,7 +793,7 @@ window.zeroLinePlugin = {
 // giorni chiusi si tengono da parte. Oggi no: e' ancora in corso.
 // I fattori fanno parte della chiave: cambiandoli i giorni gia' in cache
 // sarebbero rimasti ai numeri vecchi.
-const DAY_CACHE = "ocppDayTotals2:";
+const DAY_CACHE = "ocppDayTotals3:";
 
 // Impronta del listino: cambiando un prezzo i giorni in cache tornerebbero
 // coi soldi vecchi, visto che ora li contengono.
@@ -800,6 +850,7 @@ function mergeTotals(list){
     evMaxKw: max("evMaxKw"),
     pvMaxKw: max("pvMaxKw"),
     sessionCount: sum("sessionCount"),
+    sessionsByWb: mergeKwhByWallbox(ok.map(t => t.sessionsByWb)),
     chargeByWb: mergeKwhByWallbox(ok.map(t => t.chargeByWb)),
     pvChargedByWb: ok.every(t => t.pvChargedByWb)
       ? mergeKwhByWallbox(ok.map(t => t.pvChargedByWb))
@@ -901,6 +952,7 @@ async function computeDailyTotals(d) {
 
     const out = { chargeKwh, solarKwh, importKwh, exportKwh, pvChargedKwh, evMaxKw, pvMaxKw,
                   sessionCount: sessionsMeta.length,
+                  sessionsByWb: countByWallbox(sessionsMeta),
                   chargeByWb,
                   // Un giorno senza ricariche non e' un giorno "senza dato":
                   // la sua scomposizione e' vuota e vale zero. Mettendo null
@@ -1347,6 +1399,7 @@ function setPvStats(totPv, totCharge, pvByWb, chargeByWb, money){
                    moneyMode ? wbBreakdownParts(m.netByWb || null, cur) : []);
 
   lastMoney = money || null;
+  lastEnergia.pv = totPv || 0;
   lastEnergia.pct = pct;
   applyStatTips();
 
@@ -1383,7 +1436,8 @@ function updatePeriodStats(totals) {
   setChargedStat(totCharge, byWb);
   setPvStats(totPvCharged, totCharge, pvByWb, byWb, money);
   setPriceStats(money, { imp: sum("importKwh"), exp: sum("exportKwh") });
-  document.getElementById("statSessions").textContent = sessions || "—";
+  setStatWithSplit("statSessions", sessions || "—",
+                   wbCountParts(mergeKwhByWallbox(totals.map(t => t.sessionsByWb))));
   document.getElementById("statPvMax").textContent    = pvMax ? fmtNum(pvMax, 2) : "—";
   document.getElementById("statSolar").textContent    = fmtNum(sum("solarKwh"), 2);
   document.getElementById("statGridImport").textContent =
@@ -1767,14 +1821,13 @@ lastStats = () => {
 };
 lastStats();
 
-document.getElementById("statSessions").textContent =
-  sessionsMeta.length;
+setStatWithSplit("statSessions", sessionsMeta.length || "—",
+                 wbCountParts(countByWallbox(sessionsMeta)));
 
 
   drawHistoryChart(charge, meter, solar, sessions, sessionsMeta);
 }
 
-// kWh per wallbox a partire dalle sessioni: {wallbox01: 2.0, wallbox02: 5.0}
 // Ripartisce un totale di giornata fra le wallbox in proporzione ai kWh che
 // ciascuna ha caricato. Serve ai giorni scritti prima della col 11, dove il
 // solare per singola wallbox non e' registrato: il totale di quei giorni e'
@@ -1791,6 +1844,19 @@ function splitProporzionale(byWb, tot){
   return out;
 }
 
+// Quante ricariche ha fatto ciascuna wallbox. Le sessioni senza id - i file
+// di formato vecchio - restano fuori, come per i kWh: contarle sotto un nome
+// inventato sarebbe peggio che non contarle.
+function countByWallbox(sessionsMeta){
+  const out = {};
+  for (const s of (sessionsMeta || [])){
+    if (!s.wb) continue;
+    out[s.wb] = (out[s.wb] || 0) + 1;
+  }
+  return out;
+}
+
+// kWh per wallbox a partire dalle sessioni: {wallbox01: 2.0, wallbox02: 5.0}
 function kwhByWallbox(sessionsMeta){
   const out = {};
   for (const s of (sessionsMeta || [])){
@@ -1816,6 +1882,13 @@ function wbBreakdownParts(byWb, unit = " kWh"){
   const keys = Object.keys(byWb || {}).sort();
   if (!keys.length || !wbIdentifyNeeded(keys.length)) return [];
   return keys.map(wb => `${wbShort(wb)} ${fmtNum(byWb[wb], 2)}${unit}`);
+}
+
+// Come wbBreakdownParts, ma per conteggi: "Giardino 3", non "Giardino 3,00".
+function wbCountParts(byWb){
+  const keys = Object.keys(byWb || {}).sort();
+  if (!keys.length || !wbIdentifyNeeded(keys.length)) return [];
+  return keys.map(wb => `${wbShort(wb)} ${byWb[wb] || 0}`);
 }
 
 function wbBreakdownText(byWb, unit = " kWh"){

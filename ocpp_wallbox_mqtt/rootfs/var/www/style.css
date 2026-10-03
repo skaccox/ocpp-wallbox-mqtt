@@ -729,6 +729,18 @@ body.history-mode #status {
   opacity: .85;
 }
 
+/* I kWh col celeste del logo. In barra non e' una tinta per fare colore: fra
+   le caselle ci sono anche un conteggio, una percentuale e due potenze, e
+   questo dice quali sono le energie - cioe' quali si sommano fra loro. */
+.historyStats .kwh strong {
+  color: #87ceeb;
+}
+
+.historyStats .kwh .wbSplit {
+  color: #87ceeb;
+  opacity: .85;
+}
+
 /* L'altro verso: soldi che se ne vanno. Ambra come il tasto che accende
    questa modalita', cosi' il colore dice "denaro" prima ancora del simbolo. */
 .historyStats .cost strong {
@@ -745,16 +757,39 @@ body.history-mode #status {
 /* I numeri staccati dalla spiegazione, e verdi come in barra: sono soldi
    risparmiati, non il seguito del discorso. */
 .statTip .tipNet {
-  margin-top: 6px;
   color: #22c55e;
   font-weight: 600;
   white-space: pre-line;
 }
 
+/* Lo stesso valore letto nell'altra modalita'. I soldi tengono il colore del
+   loro verso, com'e' in barra; l'energia prende il celeste del logo, che in
+   barra non si usa: cosi' si vede a colpo d'occhio di che unita' si parla. */
+.statTip .tipGain { color: #22c55e; }
+.statTip .tipCost { color: #f59e0b; }
+.statTip .tipKwh  { color: #87ceeb; }
+
+.statTip .tipGain,
+.statTip .tipCost,
+.statTip .tipKwh {
+  font-weight: 600;
+}
+
+/* La frase sta in fondo e fa da didascalia ai numeri sopra: smorzata, se no
+   peserebbe quanto loro. */
+.statTip .tipMain {
+  color: var(--muted);
+}
+
+/* Lo stacco lo mette il vicino di sopra: le righe cambiano di numero e di
+   tipo, e cosi' una regola sola vale per tutte le combinazioni. */
+.statTip > div + div {
+  margin-top: 6px;
+}
+
 /* Un elenco di tariffe non e' un guadagno: stesso stacco del netto, ma del
    colore del testo, se no il verde lo farebbe leggere come un incasso. */
 .statTip .tipList {
-  margin-top: 6px;
   color: var(--text);
   white-space: pre-line;
 }

@@ -1,4 +1,31 @@
 # Changelog
+## [1.8.5] - 2026-10-03
+- CHG la riga "Caricato in totale ... di cui ... dalla rete" e' celeste anche
+  in modalita' kWh: sono kWh in tutte e due le viste, e restava l'unico punto
+  dove gli stessi numeri cambiavano colore con la modalita'. Ora la regola non
+  ha eccezioni - celeste i kWh, ambra e verde i soldi, bianco il resto
+## [1.8.4] - 2026-10-03
+- CHG nella spiegazione vengono prima i valori e poi la frase, che resta in
+  fondo e smorzata: chi la apre cerca un numero, la descrizione serve dopo
+- CHG in kWh i valori delle sei caselle di energia prendono il celeste del
+  logo. In barra non e' una tinta per fare colore: accanto ci sono un
+  conteggio, una percentuale e due potenze, e il celeste dice quali caselle
+  sono energia, cioe' quali si sommano fra loro
+## [1.8.3] - 2026-10-03
+- ADD la spiegazione delle quattro caselle che esistono in tutte e due le
+  modalita' porta anche il valore dell'altra: in kWh quanto fa in denaro, in
+  denaro da quanta energia viene. Il numero c'e' gia', e averlo li' evita di
+  premere il tasto solo per guardarlo
+- CHG i soldi nella spiegazione tengono il colore del loro verso, ambra o
+  verde come in barra; l'energia prende il celeste del logo, che in barra non
+  si usa: cosi' si vede a colpo d'occhio di che unita' si parla
+## [1.8.2] - 2026-10-03
+- ADD sotto Sessions compaiono le ricariche di ciascuna wallbox, come per le
+  altre caselle EV. Le sessioni dei file piu' vecchi, che non portano l'id
+  della wallbox, restano fuori dalla scomposizione invece di finire sotto un
+  nome inventato
+- CHG i giorni gia' in memoria si ricalcolano: quelli salvati prima non hanno
+  il conteggio per wallbox
 ## [1.8.1] - 2026-10-03
 - ADD casella "EV from Grid" in testa alla barra: l'energia comprata per
   caricare, cioe' il caricato meno la quota solare. In denaro diventa "EV
