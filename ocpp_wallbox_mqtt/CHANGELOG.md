@@ -1,4 +1,9 @@
 # Changelog
+## [1.8.9] - 2026-10-03
+- FIX su mobile le sei caselle della barra andavano a capo per pochi pixel.
+  Si stringono lo spazio fra loro (6px -> 4px) e i margini della barra
+  (4px -> 2px), non il corpo del testo: i numeri devono restare leggibili,
+  lo spazio vuoto no
 ## [1.8.8] - 2026-10-03
 - CHG nel log le righe di ricarica di un impianto con piu' wallbox prendono
   il colore della loro wallbox, gli stessi delle barre del grafico, e la

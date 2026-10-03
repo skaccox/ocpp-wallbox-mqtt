@@ -618,9 +618,12 @@ body.history-mode #status {
 }
 
 @media (max-width:600px){
+  /* In anno le caselle sono sei e per pochi pixel andavano a capo. Si stringe
+     lo spazio fra loro e i margini della barra, non il corpo del testo: i
+     numeri devono restare leggibili, lo spazio vuoto no. */
   .historyStats {
-    gap: 6px;
-    padding: 3px 4px;
+    gap: 4px;
+    padding: 3px 2px;
     font-size: 10px;
   }
 
