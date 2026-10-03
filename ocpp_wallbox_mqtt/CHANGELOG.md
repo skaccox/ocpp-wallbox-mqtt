@@ -1,4 +1,12 @@
 # Changelog
+## [1.8.11] - 2026-10-03
+- FIX il viola della seconda wallbox era schiarito troppo e a piena potenza
+  sbiadiva: ora sta a meta' strada (#c084fc), leggibile sul nero senza
+  perdere corpo
+- CHG i limiti di rete nel log passano da viola ad arancione in grassetto: il
+  viola ora vuol dire "seconda wallbox", e due cose senza rapporto fra loro
+  avevano lo stesso colore. L'arancione li tiene nella famiglia dei limiti,
+  con l'ambra di SetChargingProfile, e il grassetto li fa trovare
 ## [1.8.10] - 2026-10-03
 - FIX nel log il viola della seconda wallbox era illeggibile sul nero: i
   colori per wallbox passano a tinte piu' chiare, della stessa famiglia di

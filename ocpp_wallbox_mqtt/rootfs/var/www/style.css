@@ -686,7 +686,7 @@ body.history-mode #status {
    acqua che li' si leggono qui si spegnevano. Resta la stessa famiglia di
    colori, cosi' la wallbox viola nel grafico e' la viola anche nel log. */
 .wb0 { color:#bef264; }
-.wb1 { color:#d8b4fe; }
+.wb1 { color:#c084fc; }
 .wb2 { color:#fbbf24; }
 .wb3 { color:#5eead4; }
 
@@ -707,7 +707,12 @@ body.history-mode #status {
    stacca dalle manovre ordinarie */
 .safe      { color:#fb7185; font-weight:700; }
 .event     { color:#60a5fa; }
-.gridlimit { color:#8b5cf6; }
+
+/* I limiti di rete erano viola, lo stesso viola che ora dice "seconda
+   wallbox": due cose senza rapporto fra loro con lo stesso colore. Arancione
+   e grassetto, perche' sono della famiglia dei limiti come .scp - che resta
+   ambra - e perche' sono righe che si cercano, non si scorrono. */
+.gridlimit { color:#fb923c; font-weight:700; }
 .retain    { color:#9ca3af; }
 
 .badge{
