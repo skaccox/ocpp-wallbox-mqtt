@@ -1,4 +1,8 @@
 # Changelog
+## [1.8.16] - 2026-10-03
+- FIX nelle righe per wallbox l'unita' sembrava piu' accesa del numero: era
+  del colore della riga, e un testo piccolo e saturo su fondo scuro si stacca
+  piu' del suo vicino grande. Ora e' grigia, come sul valore sopra
 ## [1.8.15] - 2026-10-03
 - CHG anche nelle righe per wallbox l'unita' sta un passo indietro rispetto al
   numero, come sul valore grande: piu' piccola e smorzata. Col loro colore

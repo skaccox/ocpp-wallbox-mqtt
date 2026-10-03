@@ -636,12 +636,12 @@ body.history-mode #status {
     color: var(--muted);
   }
 
-  /* Nelle righe per wallbox vale la stessa idea - l'unita' sta un passo
-     indietro rispetto al numero - ma col loro colore smorzato invece del
-     grigio: li' il grigio su grigio sarebbe sparito. */
+  /* Stesso grigio del valore grande: col colore della riga, anche smorzato,
+     l'unita' finiva per sembrare piu' accesa del numero, perche' un testo
+     piccolo e saturo su fondo scuro si stacca piu' del suo vicino grande. */
   .historyStats .unita .wbPart::after {
     font-size: .82em;
-    opacity: .7;
+    color: var(--muted);
   }
 }
 
