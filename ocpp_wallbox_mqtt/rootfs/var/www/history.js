@@ -474,9 +474,23 @@ function setupStatTips(){
       [box.dataset.tipMain || box.title, "tipMain"]
     ]) {
       if (!testo) continue;
+
       const riga = document.createElement("div");
       riga.className = classe;
-      riga.textContent = testo;
+
+      // "Costo: 3,30 EUR" -> l'etichetta arretra e il numero resta grande.
+      // Solo la prima, e non nella frase in fondo, che etichetta non e'.
+      const taglio = classe === "tipMain" ? -1 : testo.indexOf(": ");
+      if (taglio > 0) {
+        const et = document.createElement("span");
+        et.className = "tipEtichetta";
+        et.textContent = testo.slice(0, taglio + 1);
+        riga.appendChild(et);
+        riga.appendChild(document.createTextNode(testo.slice(taglio + 2)));
+      } else {
+        riga.textContent = testo;
+      }
+
       tip.appendChild(riga);
     }
 

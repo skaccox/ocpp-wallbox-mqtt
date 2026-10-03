@@ -635,6 +635,14 @@ body.history-mode #status {
     font-weight: 400;
     color: var(--muted);
   }
+
+  /* Nelle righe per wallbox vale la stessa idea - l'unita' sta un passo
+     indietro rispetto al numero - ma col loro colore smorzato invece del
+     grigio: li' il grigio su grigio sarebbe sparito. */
+  .historyStats .unita .wbPart::after {
+    font-size: .82em;
+    opacity: .7;
+  }
 }
 
 @media (max-width:600px){
@@ -830,6 +838,15 @@ body.history-mode #status {
    peserebbe quanto loro. */
 .statTip .tipMain {
   color: var(--muted);
+}
+
+/* "Costo:", "In energia:", "Netto:": dicono di che numero si tratta, non sono
+   il numero. Stesso trattamento dell'unita' in barra, un passo indietro. */
+.statTip .tipEtichetta {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: .7;
+  margin-right: 4px;
 }
 
 /* Lo stacco lo mette il vicino di sopra: le righe cambiano di numero e di

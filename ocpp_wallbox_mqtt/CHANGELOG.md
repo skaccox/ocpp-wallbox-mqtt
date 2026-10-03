@@ -1,4 +1,11 @@
 # Changelog
+## [1.8.15] - 2026-10-03
+- CHG anche nelle righe per wallbox l'unita' sta un passo indietro rispetto al
+  numero, come sul valore grande: piu' piccola e smorzata. Col loro colore
+  pero', non col grigio, che su una riga gia' smorzata sparirebbe
+- CHG nel tooltip la stessa idea sull'etichetta: "Costo:", "In energia:",
+  "Netto:" dicono di che numero si tratta, non sono il numero, e ora si
+  leggono piu' piccole, lasciando il corpo grande alla cifra
 ## [1.8.14] - 2026-10-03
 - FIX nelle righe per wallbox l'unita' andava a capo sotto al nome invece di
   stare in coda al valore: ogni riga e' una colonna, e il pezzo aggiunto ci
