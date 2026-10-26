@@ -1,4 +1,25 @@
 # Changelog
+## [1.8.18] - 2026-10-26
+- FIX entrando in LIVE il grafico partiva vuoto e segnava zero finche' non
+  arrivava una riga nuova. Ora non accumula piu' un punto per aggiornamento
+  ma si rifa' dal log a ogni giro: i minuti appena passati sono gia' nel
+  file, quindi il disegno e' giusto da subito. Un campione per riga di stato,
+  che e' il battito piu' regolare del log, e le righe di potenza aggiornano
+  chi le ha scritte. Cosi' il grafico non puo' nemmeno sfasarsi se un
+  aggiornamento salta
+## [1.8.17] - 2026-10-26
+- FIX il grafico di LIVE cadeva a zero mentre la ricarica era in corso. Con
+  piu' wallbox la riga di stato del log le elenca tutte - "giardino:
+  STOP/SUSPEND, garage: CHARGE" - e la pagina, che si aspettava uno stato
+  solo, non ne leggeva nessuno: restava appesa all'eta' dell'ultima riga di
+  potenza, e fra una e l'altra passano anche trenta secondi. Ora legge lo
+  stato di ciascuna wallbox, e lo zero lo dice la wallbox invece
+  dell'orologio
+- ADD nel grafico di LIVE una linea per wallbox, coi colori del log e del
+  grafico storico, e una legenda in alto con nome e potenza di ciascuna. La
+  curva verde resta il totale, che e' quella che va confrontata col limite di
+  rete. Prima la linea era una sola e saltava da una wallbox all'altra senza
+  dire quale fosse
 ## [1.8.16] - 2026-10-03
 - FIX nelle righe per wallbox l'unita' sembrava piu' accesa del numero: era
   del colore della riga, e un testo piccolo e saturo su fondo scuro si stacca

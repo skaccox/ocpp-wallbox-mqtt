@@ -27,6 +27,7 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
 
     const sparkData = [];
     const sparkTime = [];
+    const sparkWb = [];   // una serie per wallbox, allineata a sparkData
 
     const SPARK_MAX = 120; // ~4 minuti se refresh 2s
 
@@ -181,12 +182,117 @@ function wbLogList(){
   // e "]" non c'e' nessun passaggio da parola a non parola.
   WB_LOG = Object.keys(mappa).sort().map((id, i) => {
     const voci = [id, mappa[id]].filter(Boolean).map(esc);
+    const nome = String(mappa[id] || id);
     return {
       indice: i,
+      nome: nome.charAt(0).toUpperCase() + nome.slice(1),
+      nomi: `(?:${voci.join("|")})`,
       re: new RegExp(`(^|[^\\w])(?:${voci.join("|")})($|[^\\w])`, "i")
     };
   });
   return WB_LOG;
+}
+
+// Colori delle linee del grafico LIVE: gli stessi delle righe del log, cosi'
+// la wallbox viola nel log e' la viola anche sopra.
+const WB_CHART_COLORS = ["#bef264", "#c084fc", "#fbbf24", "#5eead4"];
+
+// Stato di ciascuna wallbox dall'ultima riga L*, che le elenca tutte:
+//   (89, giardino: STOP/SUSPEND, garage: CHARGE 11s pv=89.9%)
+// Di "STOP/SUSPEND" vale la prima parola, come faceva la lettura a una
+// wallbox sola. Ritorna una mappa indice -> stato, vuota se non trova niente.
+function statiDaLog(righe){
+  const out = new Map();
+  const lista = wbLogList();
+  if (!lista.length) return out;
+
+  for (let i = righe.length - 1; i >= 0; i--) {
+    const l = righe[i];
+    if (!/\bL[123]\s*\*/.test(l)) continue;
+
+    for (const wb of lista) {
+      const m = l.match(new RegExp(wb.nomi + "\\s*:\\s*([A-Za-z]+)", "i"));
+      if (m) out.set(wb.indice, m[1].toUpperCase());
+    }
+    if (out.size) return out;
+  }
+  return out;
+}
+
+// Quanto a lungo vale l'ultima potenza letta, se la wallbox dice di stare
+// ancora caricando. Le righe CHG* arrivano ogni mezzo minuto: senza questa
+// attesa si disegnava uno zero in mezzo a una ricarica.
+const POTENZA_VALIDA_MS = 180000;
+
+// Il grafico di LIVE, ricostruito dal log invece che accumulato giro per
+// giro. Entrando in LIVE i minuti appena passati sono gia' nel file: cosi' il
+// disegno e' subito quello giusto, invece di partire vuoto e riempirsi al
+// ritmo degli aggiornamenti.
+//
+// Un campione per riga di stato (L*), che e' il battito piu' regolare del
+// log e dice come stanno tutte le wallbox insieme; le righe CHG*, che
+// arrivano quando capita, aggiornano la potenza di chi le ha scritte.
+function serieDaLog(righe, limite){
+  const lista = wbLogList();
+  if (!lista.length) return null;
+
+  // Non si risale all'infinito: il grafico mostra gli ultimi minuti, e una
+  // wallbox ferma da giorni farebbe rileggere tutto il buffer a ogni giro.
+  const fondo = Math.max(0, righe.length - 3000);
+
+  const stato = new Map();
+  const potenza = new Map();
+  const out = { t: [], tot: [], perWb: lista.map(() => []) };
+
+  for (let i = fondo; i < righe.length; i++) {
+    const l = righe[i];
+    const ts = parseLogTsMs(l);
+
+    if (chgHasPower(l)) {
+      const wb = lista.find(x => x.re.test(l));
+      const m = l.match(/\bP\s*=\s*([0-9]+(?:[.,][0-9]+)?)/);
+      if (wb && m && ts != null) {
+        potenza.set(wb.indice, { kw: parseFloat(m[1].replace(",", ".")) / 1000, ts });
+      }
+      continue;
+    }
+
+    if (ts == null || !/\bL[123]\s*\*/.test(l)) continue;
+
+    let vista = false;
+    for (const wb of lista) {
+      const m = l.match(new RegExp(wb.nomi + "\\s*:\\s*([A-Za-z]+)", "i"));
+      if (m) { stato.set(wb.indice, m[1].toUpperCase()); vista = true; }
+    }
+    if (!vista) continue;
+
+    let somma = 0;
+    lista.forEach((wb, k) => {
+      const st = stato.get(wb.indice);
+      const p = potenza.get(wb.indice);
+
+      // comanda lo stato: se dice che non carica e' zero, se dice che carica
+      // vale l'ultima potenza nota finche' non invecchia
+      const val = (st && /^(CHARGE|UPDATING)$/.test(st)
+                   && p && (ts - p.ts) <= POTENZA_VALIDA_MS) ? p.kw : 0;
+
+      out.perWb[k].push(val);
+      somma += val;
+    });
+
+    out.t.push(ts);
+    out.tot.push(somma);
+  }
+
+  if (!out.t.length) return null;
+
+  const extra = out.t.length - limite;
+  if (extra > 0) {
+    out.t = out.t.slice(extra);
+    out.tot = out.tot.slice(extra);
+    out.perWb = out.perWb.map(serie => serie.slice(extra));
+  }
+  return out;
 }
 
 // Indice della wallbox nominata nella riga, -1 se non se ne riconosce nessuna.
@@ -438,6 +544,44 @@ if (limitKw != null && limitKw > 0) {
       bigCtx.lineWidth   = isExporting ? 2.5 : 2;
       bigCtx.stroke();
 
+      /* ==== Una linea per wallbox, col suo colore ==== */
+      // Solo se sono piu' d'una: con una sola sarebbe la stessa curva del
+      // totale, disegnata due volte.
+      if (sparkWb.length > 1) {
+        const lista = wbLogList();
+
+        sparkWb.forEach((serie, i) => {
+          if (!serie || serie.length !== sparkData.length) return;
+
+          bigCtx.beginPath();
+          serie.forEach((val, k) => {
+            const x = xAt(k);
+            const y = yAt(val);
+            if (k === 0) bigCtx.moveTo(x, y);
+            else bigCtx.lineTo(x, y);
+          });
+          bigCtx.strokeStyle = WB_CHART_COLORS[i % WB_CHART_COLORS.length];
+          bigCtx.lineWidth = 1.5;
+          bigCtx.stroke();
+        });
+
+        // legenda: quadratino, nome e quanto sta facendo adesso
+        bigCtx.font = "12px system-ui";
+        let lx = padL + 8;
+        sparkWb.forEach((serie, i) => {
+          if (!serie || !serie.length) return;
+
+          const nome = lista[i]?.nome || `EV${i + 1}`;
+          const testo = `${nome} ${serie[serie.length - 1].toFixed(2)} kW`;
+
+          bigCtx.fillStyle = WB_CHART_COLORS[i % WB_CHART_COLORS.length];
+          bigCtx.fillRect(lx, padT + 4, 8, 8);
+          bigCtx.fillText(testo, lx + 12, padT + 12);
+
+          lx += 12 + bigCtx.measureText(testo).width + 14;
+        });
+      }
+
       /* ==== Ultimo punto + valore live a destra ==== */
       const last = sparkData[sparkData.length - 1];
       const lx = padL + cw;
@@ -527,6 +671,18 @@ if (limitKw != null && limitKw > 0) {
 
       // HOLD: se L* dice CHARGE, tengo su per un attimo anche se CHG* non è ancora arrivata
       const CHG_HOLD_MS = 30000; // 30s basta per coprire il buco tra L* e CHG*
+      // Con piu' wallbox la riga L* non dice piu' uno stato solo ma uno per
+      // ciascuna, e la lettura qui sopra non trovava niente: carica la pagina
+      // se almeno una sta caricando.
+      if (liveState == null) {
+        const stati = [...statiDaLog(all).values()];
+        if (stati.length) {
+          liveState = stati.some(x => /^(CHARGE|UPDATING)$/.test(x))
+            ? "CHARGE"
+            : stati[0];
+        }
+      }
+
       const chgHold = (liveState === "CHARGE") && (lastGoodKwTs != null) && ((nowLog - lastGoodKwTs) <= CHG_HOLD_MS);
 
      const liveCharge = (liveState === "CHARGE");
@@ -646,12 +802,27 @@ if (kwh == null && isCharging && lastGoodKwh != null) kwh = lastGoodKwh;
         v = 0;
       }
 
-      if (v != null) {
-        sparkData.push(v);
-        sparkTime.push(nowLog);
-      }
+      // Il grafico si rifa' dal log a ogni giro invece di accumulare punti:
+      // quello che mostra dipende solo dal file, quindi entrando in LIVE e'
+      // gia' pieno e non si sfasa se un aggiornamento salta.
+      const serie = serieDaLog(all, SPARK_MAX);
 
-      while (sparkData.length > SPARK_MAX) { sparkData.shift(); sparkTime.shift(); }
+      if (serie) {
+        sparkData.splice(0, sparkData.length, ...serie.tot);
+        sparkTime.splice(0, sparkTime.length, ...serie.t);
+        sparkWb.splice(0, sparkWb.length, ...serie.perWb);
+      }
+      else {
+        // log senza nomi di wallbox: si resta al conteggio di prima
+        if (v != null) {
+          sparkData.push(v);
+          sparkTime.push(nowLog);
+        }
+        while (sparkData.length > SPARK_MAX) {
+          sparkData.shift();
+          sparkTime.shift();
+        }
+      }
       drawBigChart();
 
       // Logo state (CHARGING)
