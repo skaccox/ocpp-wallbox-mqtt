@@ -341,6 +341,30 @@ function chgHasPower(line) {
       }[m]));
     }
 
+    // "#22c55e" + trasparenza -> "rgba(34,197,94,.35)"
+    function conAlfa(hex, a){
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    }
+
+    // Il colore del totale, che e' quello che il grafico mostra in punta.
+    //
+    // Quando a caricare e' una sola wallbox il totale E' la sua curva - che e'
+    // anche quella che si vede, perche' le linee per wallbox stanno sopra - e
+    // il verde sembrerebbe di un'altra cosa. Con due che caricano insieme il
+    // numero e' una somma, che wallbox non e': li' il verde e' suo.
+    function coloreTotale(){
+      if (sparkWb.length < 2) return "#22c55e";
+
+      const accese = sparkWb
+        .map((serie, i) => ({ i, val: (serie && serie[serie.length - 1]) || 0 }))
+        .filter(x => x.val > 0);
+
+      return accese.length === 1
+        ? WB_CHART_COLORS[accese[0].i % WB_CHART_COLORS.length]
+        : "#22c55e";
+    }
+
     function drawBigChart(){
       const w = bigCanvas.clientWidth;
       const h = bigCanvas.clientHeight;
@@ -478,14 +502,10 @@ function chgHasPower(line) {
       bigCtx.lineTo(padL, padT + ch);
       bigCtx.closePath();
 
+      const tinta = coloreTotale();
       const grad = bigCtx.createLinearGradient(0, padT, 0, padT + ch);
-      if (isExporting) {
-        grad.addColorStop(0, "rgba(34,197,94,.55)");  // più pieno
-        grad.addColorStop(1, "rgba(34,197,94,0)");
-      } else {
-        grad.addColorStop(0, "rgba(34,197,94,.35)");
-        grad.addColorStop(1, "rgba(34,197,94,0)");
-      }
+      grad.addColorStop(0, conAlfa(tinta, isExporting ? .55 : .35));
+      grad.addColorStop(1, conAlfa(tinta, 0));
 
 
       bigCtx.fillStyle = grad;
@@ -540,7 +560,7 @@ if (limitKw != null && limitKw > 0) {
         else bigCtx.lineTo(x, y);
       });
 
-      bigCtx.strokeStyle = isExporting ? "rgba(34,197,94,1)" : "#22c55e";
+      bigCtx.strokeStyle = coloreTotale();
       bigCtx.lineWidth   = isExporting ? 2.5 : 2;
       bigCtx.stroke();
 
@@ -587,14 +607,16 @@ if (limitKw != null && limitKw > 0) {
       const lx = padL + cw;
       const ly = yAt(last);
 
+      const tintaLive = coloreTotale();
+
       bigCtx.beginPath();
       bigCtx.arc(lx - 4, ly, 4, 0, Math.PI * 2);
-      bigCtx.fillStyle = "#22c55e";
+      bigCtx.fillStyle = tintaLive;
       bigCtx.fill();
 
       const live = last.toFixed(2) + " kW";
       bigCtx.font = "13px system-ui";
-      bigCtx.fillStyle = "#22c55e";
+      bigCtx.fillStyle = tintaLive;
       bigCtx.fillText(live, padL + cw + 10, Math.min(h - padB, Math.max(padT + 12, ly + 4)));
     }
 

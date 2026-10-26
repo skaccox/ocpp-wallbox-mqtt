@@ -1,4 +1,10 @@
 # Changelog
+## [1.8.19] - 2026-10-26
+- FIX quando carica una sola wallbox il valore in punta al grafico di LIVE
+  restava verde mentre la curva era del colore di quella wallbox: il verde e'
+  del totale, ma con una sola che carica il totale e' la sua curva. Ora la
+  punta, la linea e l'area prendono quel colore, e tornano verdi quando a
+  caricare sono due e il numero e' una somma
 ## [1.8.18] - 2026-10-26
 - FIX entrando in LIVE il grafico partiva vuoto e segnava zero finche' non
   arrivava una riga nuova. Ora non accumula piu' un punto per aggiornamento
