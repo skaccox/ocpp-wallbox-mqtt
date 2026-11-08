@@ -1,4 +1,9 @@
 # Changelog
+## [1.8.22] - 2026-11-08
+- FIX in GRAPH il titolo "OCPP Wallbox" stava due px piu' in alto che in LIVE:
+  i due px dell'intestazione erano stati tolti dal margine di sopra, che alza
+  tutta la riga. Vanno tolti da sotto, dove lo spazio avanza: l'intestazione
+  resta piu' bassa e il titolo non si muove
 ## [1.8.21] - 2026-11-08
 - FIX il grafico di LIVE si fermava molto prima del bordo destro: lo spazio
   per le etichette era fisso a 90px, quando il piu' delle volte deve bastare

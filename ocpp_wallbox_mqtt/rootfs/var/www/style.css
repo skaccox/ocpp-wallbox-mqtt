@@ -191,9 +191,11 @@ body.history-mode #status {
 
 @media (max-width:600px){
   body.history-mode header .row {
-    /* due px in meno: in GRAPH l'intestazione risultava piu' alta che in LIVE
-       e il salto si vedeva passando da una all'altra */
-    padding: 4px 6px 4px 6px;
+    /* Due px in meno in GRAPH, dove l'intestazione risultava piu' alta che
+       in LIVE. Si tolgono da SOTTO: toccando il padding di sopra sale tutta
+       la riga, titolo compreso, e il salto che si voleva togliere diventa
+       uno spostamento del titolo. */
+    padding: 6px 6px 2px 6px;
     row-gap: 0;
   }
   body.history-mode {
