@@ -378,6 +378,25 @@ function chgHasPower(line) {
         : "#22c55e";
     }
 
+    // Quali curve per wallbox hanno qualcosa da mostrare, e se la legenda
+    // deve portare anche il valore.
+    //
+    // Sta fuori dal disegno perche' e' una decisione, non un tratto di
+    // matita: cosi' si puo' provare senza una tela sotto.
+    function serieVive(serieWb, lunghezza) {
+      const vive = (serieWb || [])
+        .map((serie, i) => ({ i, serie }))
+        .filter(x => x.serie
+                  && x.serie.length === lunghezza
+                  && x.serie.some(v => v > 0));
+
+      // Il valore accanto al nome solo quando a caricare sono in due: con una
+      // sola quel numero e' gia' scritto in punta al grafico, e dirlo due
+      // volte sulla stessa schermata e' dirlo una volta di troppo.
+      const adesso = vive.filter(x => x.serie[x.serie.length - 1] > 0);
+      return { vive, conValore: adesso.length > 1 };
+    }
+
     function drawBigChart(){
       const w = bigCanvas.clientWidth;
       const h = bigCanvas.clientHeight;
@@ -406,7 +425,19 @@ function chgHasPower(line) {
 
 
       const padL = 54;
-      const padR = 90;   // spazio per valore live + label soglia
+
+      // Lo spazio a destra e' quello che serve alle due etichette, misurato.
+      // Erano 90px fissi: col valore live da solo - la soglia non c'e' se
+      // GRID_LIMIT non e' impostato - il grafico si fermava molto prima del
+      // bordo per niente.
+      const ultimo = sparkData[sparkData.length - 1] || 0;
+      bigCtx.font = "13px system-ui";
+      let padR = bigCtx.measureText(`${ultimo.toFixed(2)} kW`).width;
+      if (limitKw != null && limitKw > 0) {
+        bigCtx.font = "12px system-ui";
+        padR = Math.max(padR, bigCtx.measureText(`LIMIT ${limitKw.toFixed(2)} kW`).width);
+      }
+      padR = Math.ceil(padR) + 16;
       const padT = 8;
       const padB = 22;
 
@@ -583,9 +614,12 @@ if (limitKw != null && limitKw > 0) {
       if (sparkWb.length > 1) {
         const lista = wbLogList();
 
-        sparkWb.forEach((serie, i) => {
-          if (!serie || serie.length !== sparkData.length) return;
+        // Una wallbox ferma per tutto il tratto mostrato non ha una curva da
+        // vedere: sarebbe una riga appoggiata sull'asse, e un nome in legenda
+        // che occupa spazio senza dire niente.
+        const { vive, conValore } = serieVive(sparkWb, sparkData.length);
 
+        for (const { i, serie } of vive) {
           bigCtx.beginPath();
           serie.forEach((val, k) => {
             const x = xAt(k);
@@ -596,23 +630,22 @@ if (limitKw != null && limitKw > 0) {
           bigCtx.strokeStyle = WB_CHART_COLORS[i % WB_CHART_COLORS.length];
           bigCtx.lineWidth = 1.5;
           bigCtx.stroke();
-        });
+        }
 
-        // legenda: quadratino, nome e quanto sta facendo adesso
         bigCtx.font = "12px system-ui";
         let lx = padL + 8;
-        sparkWb.forEach((serie, i) => {
-          if (!serie || !serie.length) return;
-
+        for (const { i, serie } of vive) {
           const nome = lista[i]?.nome || `EV${i + 1}`;
-          const testo = `${nome} ${serie[serie.length - 1].toFixed(2)} kW`;
+          const testo = conValore
+            ? `${nome} ${serie[serie.length - 1].toFixed(2)} kW`
+            : nome;
 
           bigCtx.fillStyle = WB_CHART_COLORS[i % WB_CHART_COLORS.length];
           bigCtx.fillRect(lx, padT + 4, 8, 8);
           bigCtx.fillText(testo, lx + 12, padT + 12);
 
           lx += 12 + bigCtx.measureText(testo).width + 14;
-        });
+        }
       }
 
       /* ==== Ultimo punto + valore live a destra ==== */

@@ -1,4 +1,14 @@
 # Changelog
+## [1.8.21] - 2026-11-08
+- FIX il grafico di LIVE si fermava molto prima del bordo destro: lo spazio
+  per le etichette era fisso a 90px, quando il piu' delle volte deve bastare
+  al solo valore in punta. Ora e' quello che serve, misurato
+- CHG in legenda una wallbox ferma per tutto il tratto mostrato non compare:
+  sarebbe una riga appoggiata sull'asse e un nome che non dice niente. E con
+  una sola accesa resta il nome senza valore, perche' quel numero e' gia'
+  scritto in punta al grafico - si leggeva due volte nella stessa schermata
+- FIX in GRAPH l'intestazione era due px piu' alta che in LIVE, e il salto si
+  vedeva passando da una all'altra
 ## [1.8.20] - 2026-11-08
 - FIX l'avviso "log non raggiungibile" era illeggibile: stava nella riga del
   titolo e su schermo stretto i pulsanti LIVE e GRAPH gli finivano sopra, se
