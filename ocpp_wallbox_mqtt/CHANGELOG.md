@@ -1,4 +1,12 @@
 # Changelog
+## [1.8.20] - 2026-11-08
+- FIX l'avviso "log non raggiungibile" era illeggibile: stava nella riga del
+  titolo e su schermo stretto i pulsanti LIVE e GRAPH gli finivano sopra, se
+  ne vedevano due sillabe. Ora sta sotto la riga del filtro, dove lo spazio e'
+  libero, e da vuoto non occupa niente
+- CHG "Go to bottom" compare solo quando non si e' gia' in fondo: in fondo e'
+  un pulsante che non fa niente, e su mobile toglieva spazio al filtro. Ed e'
+  giallo, perche' quando compare ha qualcosa da dire
 ## [1.8.19] - 2026-10-26
 - FIX quando carica una sola wallbox il valore in punta al grafico di LIVE
   restava verde mentre la curva era del colore di quella wallbox: il verde e'

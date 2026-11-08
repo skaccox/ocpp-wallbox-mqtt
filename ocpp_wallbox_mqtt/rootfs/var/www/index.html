@@ -36,9 +36,6 @@
           <div id="updatePanel" class="updatePanel" style="display:none"></div>
         </span>
 
-        <!-- niente orologio: restava vuoto e serve solo a dire che il log
-             non si aggiorna piu' -->
-        <span id="status"></span>
 
       
       </div>
@@ -91,6 +88,11 @@
         <input id="filter" type="text" placeholder="es: CHG, SetChargingProfile, grid safe..." />
         <button id="btnBottom">Go to bottom</button>
       </label>
+
+      <!-- L'avviso sta qui, sotto la riga del filtro: in cima i pulsanti
+           LIVE/GRAPH gli finivano sopra su schermo stretto e se ne leggevano
+           due sillabe. Qui lo spazio e' libero, e da vuoto non occupa niente. -->
+      <span id="status"></span>
 
       <div class="footerRow">
         <div class="metricsRow">

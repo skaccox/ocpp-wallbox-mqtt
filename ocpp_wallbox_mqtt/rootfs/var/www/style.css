@@ -98,6 +98,9 @@ header .row{
 #status{
   color:#f87171;
   font-size:11px;
+  /* sotto la riga del filtro, allineato al pulsante che gli sta sopra */
+  text-align:right;
+  flex:0 0 auto;
 }
 
 /* aggiornamento in corso: e' un'attesa, non un guasto */
@@ -568,6 +571,15 @@ body.history-mode #status {
   gap:8px;
 }
 
+
+/* Compare solo quando si e' risaliti nel log, quindi quando c'e' ha qualcosa
+   da dire: giallo, che in LIVE non e' usato per nient'altro fuori dal log. */
+#btnBottom{
+  background:rgba(251,191,36,.14);
+  border-color:rgba(251,191,36,.55);
+  color:#fbbf24;
+  font-weight:700;
+}
 
 .rightFull .wide .btnInline{
   flex:0 0 auto;

@@ -63,6 +63,17 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
       return (bottom - scrollPos) <= px;
     }
 
+    // "Go to bottom" serve solo a chi non ci e' gia': in fondo e' un pulsante
+    // che non fa niente, e sulla riga del filtro lo spazio e' poco. Compare
+    // quando si e' risaliti - ed e' allora che deve anche farsi notare.
+    function aggiornaBtnBottom() {
+      if (!btnBottom) return;
+      const serve = (window.currentMode === "live") && !isNearBottom();
+      btnBottom.style.display = serve ? "" : "none";
+    }
+
+    aggiornaBtnBottom();
+
     // Scorrere all'indietro o selezionare vuol dire leggere o copiare: con
     // l'auto-refresh acceso il box viene riscritto sotto le mani e la
     // selezione salta. Si spegne davvero il menu a tendina, cosi' si vede
@@ -106,6 +117,7 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     // Se l'utente scrolla su, disattiva il follow. Se torna giù, riattiva.
     window.addEventListener("scroll", () => {
       followBottom = isNearBottom();
+      aggiornaBtnBottom();
       if (window.currentMode !== "live") return;
       if (followBottom) resumeRefresh(); else pauseRefresh();
     }, { passive: true });
@@ -146,6 +158,7 @@ window.currentMode = (window.OCPP_DEFAULT_VIEW === "graph") ? "history" : "live"
     btnBottom.addEventListener("click", () => {
       followBottom = true;
       window.scrollTo(0, document.body.scrollHeight);
+      aggiornaBtnBottom();
     });
 	
 function parseLogTsMs(line) {
@@ -888,6 +901,7 @@ if (kwh == null && isCharging && lastGoodKwh != null) kwh = lastGoodKwh;
       elStatus.className = "";
 
       if (followBottom) window.scrollTo(0, document.body.scrollHeight);
+      aggiornaBtnBottom();
     } catch (e) {
       // Il log a schermo non si tocca: restano le ultime righe buone, con
       // scritto perche' non arrivano piu' quelle nuove.
